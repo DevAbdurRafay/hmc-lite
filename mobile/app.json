@@ -1,0 +1,48 @@
+{
+  "expo": {
+    "name": "HCM Lite",
+    "slug": "hcmlite-mobile",
+    "version": "1.0.0",
+    "orientation": "portrait",
+    "icon": "./assets/icon.png",
+    "scheme": "hcmlite",
+    "userInterfaceStyle": "dark",
+    "splash": {
+      "backgroundColor": "#0a0d14"
+    },
+    "ios": {
+      "supportsTablet": true,
+      "bundleIdentifier": "com.hcmlite.mobile",
+      "infoPlist": {
+        "NSCameraUsageDescription": "HCM Lite requires camera access for verified face attendance check-ins.",
+        "NSLocationWhenInUseUsageDescription": "HCM Lite requires location access to verify attendance check-ins within the office geofence."
+      }
+    },
+    "android": {
+      "adaptiveIcon": {
+        "backgroundColor": "#0a0d14"
+      },
+      "package": "com.hcmlite.mobile",
+      "permissions": [
+        "CAMERA",
+        "ACCESS_FINE_LOCATION",
+        "ACCESS_COARSE_LOCATION"
+      ]
+    },
+    "plugins": [
+      "expo-router",
+      [
+        "expo-camera",
+        {
+          "cameraPermission": "Allow HCM Lite to access your camera for face attendance verification."
+        }
+      ],
+      [
+        "expo-location",
+        {
+          "locationWhenInUsePermission": "Allow HCM Lite to verify your position within the office geofence."
+        }
+      ]
+    ]
+  }
+}
