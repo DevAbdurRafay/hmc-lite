@@ -14,37 +14,68 @@ from app.services.leave_service import LeaveService
 from app.utils.dates import now_company, get_working_days_between
 
 
-SYSTEM_POLICY_PROMPT = """
-You are the intelligent HR & Operations AI Assistant for "HCM Lite".
+def get_system_policy_prompt(db: Session) -> str:
+    from app.services.org_service import OrgService
+    try:
+        settings_rec = OrgService.get_settings(db)
+        start_time_str = settings_rec.office_start_time or "09:00"
+        start_parts = [int(p) for p in start_time_str.split(":")]
+        start_dt = datetime(2026, 1, 1, start_parts[0], start_parts[1])
+        grace = int(settings_rec.grace_period_minutes) if settings_rec.grace_period_minutes is not None else 15
+        late_dt = start_dt + timedelta(minutes=grace)
+        start_formatted = start_dt.strftime("%I:%M %p")
+        late_formatted = late_dt.strftime("%I:%M %p")
+        company_name = settings_rec.company_name or "HCM Lite"
+        half_day = settings_rec.half_day_threshold_hours or 5.0
+        lat = settings_rec.office_latitude or 24.8607
+        lng = settings_rec.office_longitude or 67.0011
+        rad = settings_rec.office_radius_meters or 150.0
+    except Exception:
+        company_name = "HCM Lite"
+        start_formatted = "09:00 AM"
+        grace = 15
+        late_formatted = "09:15 AM"
+        half_day = 5.0
+        lat, lng, rad = 24.8607, 67.0011, 150.0
+
+    return f"""You are the intelligent HR & Operations AI Assistant for "{company_name}".
 The database and internal tools are your ONLY source of truth. Never invent statistics or salaries.
 
-COMPANY POLICIES:
-1. Working Hours: Official start time is 09:00 AM with a 15-minute grace period. Check-ins after 09:15 AM are stamped LATE.
-2. Half-Day Threshold: Working less than 5.0 hours in a day constitutes a HALF_DAY.
-3. Weekend Days: Saturday and Sunday.
-4. Leave Types & Quotas:
+CURRENT REAL-TIME COMPANY POLICIES SAVED BY ADMIN (DATABASE GROUND TRUTH):
+1. Working Hours: Official start time is {start_formatted} with an exact {grace}-minute grace period configured by Admin.
+   - Check-ins between {start_formatted} and {late_formatted} are considered ON TIME.
+   - Check-ins after {late_formatted} are stamped as LATE.
+2. Half-Day Threshold: Working less than {half_day} hours in a day constitutes a HALF_DAY.
+3. Weekend Days: Saturday and Sunday are permanently designated OFF days throughout the company for both HR and employees.
+4. Office Location & Geofence: Latitude {lat:.4f}, Longitude {lng:.4f} with an authorized office radius of {rad:.0f} meters.
+5. Leave Types & Quotas:
    - Annual Leave: 14 days/year
    - Sick Leave: 8 days/year
    - Casual Leave: 10 days/year
    - Unpaid Leave: Unlimited
-5. Working Days Calculation: Leaves only consume working days, skipping Saturdays, Sundays, and official public holidays.
-6. Payroll Structure:
+6. Working Days Calculation: Leaves only consume working days, strictly skipping Saturdays, Sundays, and official public holidays.
+7. Payroll Structure:
    - Gross Salary = 1.5 x Basic Salary (HRA = 40% of Basic, Medical Allowance = 10% of Basic).
    - Daily rate = Gross Salary / Working days of the month.
    - Deductions = (Absent days + Unpaid leave days + 0.5 x Half-day count) x Daily rate.
    - Annual tax slabs applied on annualized gross (Gross x 12):
      0 to 600k (0%), 600k-1.2M (5% >600k), 1.2M-2.4M (30k + 15% >1.2M), 2.4M-3.6M (210k + 25% >2.4M), >3.6M (510k + 35% >3.6M).
    - Monthly tax = Annual tax / 12.
-7. Payroll Workflow: HR drafts the monthly run; ADMIN finalizes. Finalized runs are permanently locked.
-8. Role Scoping & Confidentiality:
+8. Payroll Workflow: HR drafts the monthly run; ADMIN finalizes. Finalized runs are permanently locked.
+9. Role Scoping & Confidentiality:
    - Employees are STRICTLY FORBIDDEN from viewing other employees' salaries or personal data.
    - If an employee asks for a colleague's salary or private data, you MUST politely refuse.
 
 LANGUAGE SUPPORT:
-You understand English, Roman Urdu (e.g. 'Mujhe kal chutti chahiye', 'Meri kitni sick leaves baqi hain?'), and Urdu. If the user addresses you in Roman Urdu, you may reply helpfully in Roman Urdu or polite English.
+You understand English, Roman Urdu (e.g. 'Mujhe kal chutti chahiye', 'Meri kitni sick leaves baqi hain?', 'Office timings kya hain?', 'Grace period kitna hai?'), and Urdu. If the user addresses you in Roman Urdu, you may reply helpfully in Roman Urdu or polite English.
 """
 
 TOOL_DEFINITIONS = [
+    {
+        "name": "get_company_settings",
+        "description": "Returns current live company settings, official office start time, grace period minutes, and working hours configured by Admin.",
+        "parameters": {"type": "object", "properties": {}}
+    },
     {
         "name": "get_headcount",
         "description": "Returns current employee headcount and attrition metrics. Permitted for Admin and HR.",
@@ -126,6 +157,25 @@ class AIService:
                 return {"error": "Permission Denied: Headcount analytics is restricted to HR and Admin."}
             dept_id = arguments.get("department_id")
             return AnalyticsService.get_headcount_metrics(db, department_id=dept_id)
+
+        elif tool_name == "get_company_settings":
+            from app.services.org_service import OrgService
+            st = OrgService.get_settings(db)
+            start_parts = [int(p) for p in (st.office_start_time or "09:00").split(":")]
+            start_dt = datetime(2026, 1, 1, start_parts[0], start_parts[1])
+            grace = int(st.grace_period_minutes) if st.grace_period_minutes is not None else 15
+            late_dt = start_dt + timedelta(minutes=grace)
+            return {
+                "company_name": st.company_name,
+                "office_start_time": start_dt.strftime("%I:%M %p"),
+                "grace_period_minutes": grace,
+                "late_threshold": late_dt.strftime("%I:%M %p"),
+                "half_day_threshold_hours": st.half_day_threshold_hours,
+                "weekend_days": "Saturday and Sunday",
+                "office_latitude": st.office_latitude,
+                "office_longitude": st.office_longitude,
+                "office_radius_meters": st.office_radius_meters
+            }
 
         elif tool_name == "get_attendance_summary":
             dept_id = arguments.get("department_id")
@@ -234,16 +284,30 @@ class AIService:
                     provider = fallback_provider
                     model_name = fallback_model
                 except Exception:
+                    from app.services.org_service import OrgService
+                    st = OrgService.get_settings(db)
+                    start_parts = [int(p) for p in (st.office_start_time or "09:00").split(":")]
+                    start_dt = datetime(2026, 1, 1, start_parts[0], start_parts[1])
+                    grace = int(st.grace_period_minutes) if st.grace_period_minutes is not None else 15
+                    late_dt = start_dt + timedelta(minutes=grace)
                     final_answer = (
-                        "I am currently operating in resilient policy mode. "
-                        "According to HCM Lite policies: official working hours start at 09:00 AM with a 15-minute grace period (check-ins after 09:15 AM are stamped LATE). "
-                        "Working less than 5.0 hours constitutes a HALF_DAY. Annual leave quota is 14 days, Sick leave is 8 days, and Casual leave is 10 days."
+                        f"According to {st.company_name or 'HCM Lite'} official policies saved by Admin: "
+                        f"Official office start time is {start_dt.strftime('%I:%M %p')} with an exact {grace}-minute grace period "
+                        f"(check-ins up to {late_dt.strftime('%I:%M %p')} are considered on-time; check-ins after {late_dt.strftime('%I:%M %p')} are stamped LATE). "
+                        f"Working less than {st.half_day_threshold_hours} hours constitutes a HALF_DAY. Saturday and Sunday are permanently OFF days."
                     )
             else:
+                from app.services.org_service import OrgService
+                st = OrgService.get_settings(db)
+                start_parts = [int(p) for p in (st.office_start_time or "09:00").split(":")]
+                start_dt = datetime(2026, 1, 1, start_parts[0], start_parts[1])
+                grace = int(st.grace_period_minutes) if st.grace_period_minutes is not None else 15
+                late_dt = start_dt + timedelta(minutes=grace)
                 final_answer = (
-                    "I am currently operating in resilient policy mode. "
-                    "According to HCM Lite policies: official working hours start at 09:00 AM with a 15-minute grace period (check-ins after 09:15 AM are stamped LATE). "
-                    "Working less than 5.0 hours constitutes a HALF_DAY. Annual leave quota is 14 days, Sick leave is 8 days, and Casual leave is 10 days."
+                    f"According to {st.company_name or 'HCM Lite'} official policies saved by Admin: "
+                    f"Official office start time is {start_dt.strftime('%I:%M %p')} with an exact {grace}-minute grace period "
+                    f"(check-ins up to {late_dt.strftime('%I:%M %p')} are considered on-time; check-ins after {late_dt.strftime('%I:%M %p')} are stamped LATE). "
+                    f"Working less than {st.half_day_threshold_hours} hours constitutes a HALF_DAY. Saturday and Sunday are permanently OFF days."
                 )
 
         latency_ms = int((time.time() - start_time) * 1000)
@@ -286,7 +350,8 @@ class AIService:
             "function": t
         } for t in TOOL_DEFINITIONS]
 
-        messages = [{"role": "system", "content": SYSTEM_POLICY_PROMPT}]
+        system_prompt = get_system_policy_prompt(db)
+        messages = [{"role": "system", "content": system_prompt}]
         if history:
             for h in history:
                 messages.append({"role": h["role"], "content": h["content"]})
@@ -342,8 +407,9 @@ class AIService:
     ) -> Tuple[str, List[Dict[str, Any]]]:
         import httpx
         url = f"https://generativelanguage.googleapis.com/v1beta/models/{model_name}:generateContent?key={api_key}"
+        system_prompt = get_system_policy_prompt(db)
         prompt_text = (
-            f"{SYSTEM_POLICY_PROMPT}\n\n"
+            f"{system_prompt}\n\n"
             f"User Role: {caller.role}\n"
             f"User Email: {caller.email}\n"
             f"Question: {message}"

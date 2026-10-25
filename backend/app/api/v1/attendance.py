@@ -9,9 +9,10 @@ from app.models import User, AttendanceCorrection
 from app.schemas.attendance import (
     CheckInRequest, CheckOutRequest, AttendanceResponse,
     AttendanceCorrectionCreate, AttendanceCorrectionReview,
-    AttendanceCorrectionResponse, AttendanceBoardItem
+    AttendanceCorrectionResponse, AttendanceBoardItem, AttendanceReportSummary
 )
 from app.services.attendance_service import AttendanceService
+from app.utils.dates import now_company
 
 router = APIRouter(prefix="/attendance", tags=["Attendance & Time Tracking"])
 
@@ -61,6 +62,43 @@ def check_out(
     )
 
 
+@router.post("/admin-checkout/{employee_id}", response_model=AttendanceResponse)
+def admin_manual_checkout(
+    employee_id: int,
+    request: Request,
+    hr_actor: User = Depends(require_roles(["ADMIN", "HR"])),
+    db: Session = Depends(get_db)
+):
+    """HR/Admin: Manually clock out an employee who forgot or left."""
+    client_ip = request.client.host if request.client else None
+    return AttendanceService.admin_checkout(db, employee_id, actor=hr_actor, client_ip=client_ip)
+
+
+@router.get("/report", response_model=AttendanceReportSummary)
+def get_monthly_attendance_report(
+    employee_id: Optional[int] = None,
+    month: Optional[int] = None,
+    year: Optional[int] = None,
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Monthly date-wise attendance report with Saturday and Sunday marked as 'Weekend (Off)'."""
+    now_c = now_company()
+    if not month:
+        month = now_c.month
+    if not year:
+        year = now_c.year
+
+    if current_user.role == "EMPLOYEE":
+        if not current_user.employee:
+            raise HTTPException(status_code=400, detail={"code": "NO_EMPLOYEE_PROFILE", "message": "No employee profile"})
+        target_emp_id = current_user.employee.id
+    else:
+        target_emp_id = employee_id or (current_user.employee.id if current_user.employee else 1)
+
+    return AttendanceService.get_monthly_report(db, target_emp_id, month, year)
+
+
 @router.get("/calendar/{employee_id}", response_model=List[AttendanceResponse])
 def get_attendance_calendar(
     employee_id: int,
@@ -83,6 +121,49 @@ def get_daily_attendance_board(
 ):
     """HR/Admin: Daily live attendance board across all staff."""
     return AttendanceService.get_daily_board(db, target_date=target_date, department_id=department_id)
+
+
+@router.get("/daily")
+def get_daily_attendance_table(
+    date: Optional[date] = None,
+    department_id: Optional[int] = None,
+    current_user: User = Depends(require_roles(["ADMIN", "HR"])),
+    db: Session = Depends(get_db)
+):
+    """Daily live attendance board formatted for AttendanceBoardPage UI."""
+    items = AttendanceService.get_daily_board(db, target_date=date, department_id=department_id)
+    records = []
+    for item in items:
+        records.append({
+            "id": item.employee_id,
+            "employee_id": item.employee_id,
+            "employee_code": item.employee_code,
+            "employee_name": item.employee_name,
+            "department_name": item.department_name,
+            "status": item.status.lower(),
+            "check_in_time": item.check_in.isoformat() if item.check_in else None,
+            "check_out_time": item.check_out.isoformat() if item.check_out else None,
+            "work_hours": item.working_hours,
+            "working_hours": item.working_hours,
+            "face_verified": item.source == "CAMERA",
+            "location_verified": item.source in ["CAMERA", "MOBILE"],
+            "source": item.source or "WEB",
+        })
+    return {"records": records, "date": str(date or now_company().date())}
+
+
+@router.get("/my-records")
+def get_my_attendance_records(
+    current_user: User = Depends(get_current_user),
+    db: Session = Depends(get_db)
+):
+    """Employee personal attendance history."""
+    if not current_user.employee:
+        return []
+    records = db.query(Attendance).filter(
+        Attendance.employee_id == current_user.employee.id
+    ).order_by(Attendance.date.desc()).limit(60).all()
+    return [AttendanceService._build_attendance_response(r) for r in records]
 
 
 @router.post("/corrections", response_model=AttendanceCorrectionResponse, status_code=status.HTTP_201_CREATED)
@@ -155,6 +236,7 @@ def list_corrections(
 
 
 @router.patch("/corrections/{correction_id}/review", response_model=AttendanceCorrectionResponse)
+@router.post("/corrections/{correction_id}/review", response_model=AttendanceCorrectionResponse)
 def review_correction(
     correction_id: int,
     review_data: AttendanceCorrectionReview,

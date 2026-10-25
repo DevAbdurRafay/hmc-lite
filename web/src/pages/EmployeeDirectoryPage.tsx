@@ -1,8 +1,8 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Users, UserPlus, FileSpreadsheet, Download, Search,
   Filter, Eye, Edit2, AlertCircle, CheckCircle, Shield,
-  Phone, Mail, Calendar, DollarSign, ArrowRight, X
+  Phone, Mail, Calendar, DollarSign, ArrowRight, X, Camera, Upload, Check, Power
 } from 'lucide-react';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
@@ -12,10 +12,15 @@ import { TableSkeleton } from '../components/common/Skeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { Employee, Department, Designation } from '../types';
 import { apiFetch } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import { PlotlyWorkforceDashboard } from '../components/analytics/PlotlyWorkforceDashboard';
 import { CsvDropzoneModal } from '../components/employees/CsvDropzoneModal';
 
 export const EmployeeDirectoryPage: React.FC = () => {
+  const { user } = useAuth();
+  const isHR = user?.role === 'HR';
+  const isAdmin = user?.role === 'ADMIN';
+
   const [employees, setEmployees] = useState<Employee[]>([]);
   const [departments, setDepartments] = useState<Department[]>([]);
   const [designations, setDesignations] = useState<Designation[]>([]);
@@ -23,6 +28,28 @@ export const EmployeeDirectoryPage: React.FC = () => {
   const [selectedDept, setSelectedDept] = useState('');
   const [selectedStatus, setSelectedStatus] = useState('');
   const [isLoading, setIsLoading] = useState(true);
+  const [actionLoadingId, setActionLoadingId] = useState<number | null>(null);
+
+  const handleStatusChange = async (empId: number, newStatus: string) => {
+    const isTerminating = newStatus === 'TERMINATED' || newStatus === 'RESIGNED';
+    const confirmMsg = isTerminating
+      ? `Are you sure you want to mark this employee as ${newStatus}? Their account will be deactivated and portal access blocked immediately.`
+      : `Change employee status to ${newStatus}?`;
+    if (!window.confirm(confirmMsg)) return;
+
+    setActionLoadingId(empId);
+    try {
+      await apiFetch(`/employees/${empId}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: newStatus }),
+      });
+      await fetchEmployees();
+    } catch (err: any) {
+      alert(err.message || 'Status update failed');
+    } finally {
+      setActionLoadingId(null);
+    }
+  };
 
   // Modals state
   const [registerModalOpen, setRegisterModalOpen] = useState(false);
@@ -38,14 +65,67 @@ export const EmployeeDirectoryPage: React.FC = () => {
     last_name: '',
     email: '',
     phone: '',
+    gender: 'MALE',
     department_id: '',
     designation_id: '',
     joining_date: new Date().toISOString().split('T')[0],
     basic_salary: '',
     status: 'ACTIVE',
+    face_image_data: '',
   });
   const [regLoading, setRegLoading] = useState(false);
   const [regError, setRegError] = useState<string | null>(null);
+
+  // Camera capture state for biometric face registration
+  const [cameraActive, setCameraActive] = useState(false);
+  const videoRef = useRef<HTMLVideoElement>(null);
+  const mediaStreamRef = useRef<MediaStream | null>(null);
+
+  const startFaceCamera = async () => {
+    try {
+      const stream = await navigator.mediaDevices.getUserMedia({ video: { width: 320, height: 240 } });
+      mediaStreamRef.current = stream;
+      if (videoRef.current) {
+        videoRef.current.srcObject = stream;
+      }
+      setCameraActive(true);
+    } catch {
+      alert('Unable to access camera. Please check browser permissions or upload a photo.');
+    }
+  };
+
+  const captureFaceSnapshot = () => {
+    if (!videoRef.current) return;
+    const canvas = document.createElement('canvas');
+    canvas.width = 320;
+    canvas.height = 240;
+    const ctx = canvas.getContext('2d');
+    if (ctx) {
+      ctx.drawImage(videoRef.current, 0, 0, 320, 240);
+      const dataUrl = canvas.toDataURL('image/jpeg', 0.85);
+      setRegForm(prev => ({ ...prev, face_image_data: dataUrl }));
+    }
+    stopFaceCamera();
+  };
+
+  const stopFaceCamera = () => {
+    if (mediaStreamRef.current) {
+      mediaStreamRef.current.getTracks().forEach(t => t.stop());
+      mediaStreamRef.current = null;
+    }
+    setCameraActive(false);
+  };
+
+  const handlePhotoUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      const reader = new FileReader();
+      reader.onload = () => {
+        setRegForm(prev => ({ ...prev, face_image_data: reader.result as string }));
+      };
+      reader.readAsDataURL(file);
+    }
+  };
 
   // CSV Dry Run state
   const [csvFile, setCsvFile] = useState<File | null>(null);
@@ -70,9 +150,13 @@ export const EmployeeDirectoryPage: React.FC = () => {
     }
   };
 
-  useEffect(() => {
+  const loadMetadata = () => {
     apiFetch<Department[]>('/org/departments').then(setDepartments).catch(() => {});
     apiFetch<Designation[]>('/org/designations').then(setDesignations).catch(() => {});
+  };
+
+  useEffect(() => {
+    loadMetadata();
   }, []);
 
   useEffect(() => {
@@ -103,6 +187,7 @@ export const EmployeeDirectoryPage: React.FC = () => {
       setRegisterModalOpen(false);
       setRegForm({
         employee_code: '', first_name: '', last_name: '', email: '', phone: '',
+        gender: 'MALE', face_image_data: '',
         department_id: '', designation_id: '', joining_date: new Date().toISOString().split('T')[0],
         basic_salary: '', status: 'ACTIVE',
       });
@@ -144,15 +229,16 @@ export const EmployeeDirectoryPage: React.FC = () => {
     formData.append('file', csvFile);
 
     try {
-      await apiFetch<any>('/employees/csv-import', {
+      const res = await apiFetch<any>('/employees/csv-import', {
         method: 'POST',
         body: formData,
       });
-      alert('CSV Employees imported successfully!');
+      alert(res.message || 'CSV Employees imported successfully!');
       setCsvModalOpen(false);
       setCsvDryRunResult(null);
       setCsvFile(null);
       fetchEmployees();
+      loadMetadata();
     } catch (err: any) {
       alert(err.message || 'Import execution failed');
     } finally {
@@ -182,11 +268,25 @@ export const EmployeeDirectoryPage: React.FC = () => {
       {/* Action Header */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 glass-card p-4">
         <div>
-          <h2 className="text-xl font-extrabold text-white light:text-slate-900 tracking-tight">
-            Employee Directory & Records
-          </h2>
+          <div className="flex items-center gap-2 mb-1">
+            <h2 className="text-xl font-extrabold text-white light:text-slate-900 tracking-tight">
+              Employee Directory & Records
+            </h2>
+            {isHR && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+                HR Lifecycle Authority
+              </span>
+            )}
+            {isAdmin && (
+              <span className="text-[10px] font-bold px-2 py-0.5 rounded-full bg-purple-500/15 text-purple-400 border border-purple-500/20">
+                Admin Audit & View Mode
+              </span>
+            )}
+          </div>
           <p className="text-xs text-slate-400 light:text-slate-500">
-            Staff master profiles, compensation structures, and CSV batch onboarding
+            {isHR
+              ? 'Full personnel lifecycle: onboard staff, manage probation/status, or deactivate profiles.'
+              : 'Enterprise workforce directory: view master profiles and organizational structure.'}
           </p>
         </div>
 
@@ -207,14 +307,16 @@ export const EmployeeDirectoryPage: React.FC = () => {
             <Download className="w-4 h-4 text-sky-400" />
             <span>Export CSV</span>
           </a>
-          <Button
-            variant="primary"
-            size="sm"
-            onClick={() => setRegisterModalOpen(true)}
-            icon={<UserPlus className="w-4 h-4" />}
-          >
-            Register Employee
-          </Button>
+          {isHR && (
+            <Button
+              variant="primary"
+              size="sm"
+              onClick={() => setRegisterModalOpen(true)}
+              icon={<UserPlus className="w-4 h-4" />}
+            >
+              Register Employee
+            </Button>
+          )}
         </div>
       </div>
 
@@ -238,7 +340,7 @@ export const EmployeeDirectoryPage: React.FC = () => {
               className="w-full glass-input px-3 py-2 text-xs"
             >
               <option value="">All Departments</option>
-              {departments.map(d => (
+              {(departments || []).map(d => (
                 <option key={d.id} value={d.id}>{d.name}</option>
               ))}
             </select>
@@ -289,7 +391,7 @@ export const EmployeeDirectoryPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {employees.map((emp) => (
+                {(employees || []).map((emp) => (
                   <tr key={emp.id} className="hover:bg-white/5 transition-colors">
                     <td className="py-3.5 px-4">
                       <div>
@@ -322,14 +424,55 @@ export const EmployeeDirectoryPage: React.FC = () => {
                       </Badge>
                     </td>
                     <td className="py-3.5 px-4 text-right">
-                      <Button
-                        variant="glass"
-                        size="sm"
-                        onClick={() => open360(emp.id)}
-                        icon={<Eye className="w-3.5 h-3.5 text-sky-400" />}
-                      >
-                        360 View
-                      </Button>
+                      <div className="flex items-center justify-end gap-2">
+                        {isHR && (
+                          <div className="flex items-center gap-1.5">
+                            {/* HR Lifecycle Status Dropdown */}
+                            <select
+                              value={emp.status}
+                              disabled={actionLoadingId === emp.id}
+                              onChange={(e) => handleStatusChange(emp.id, e.target.value)}
+                              className="bg-black/40 text-white border border-white/15 rounded-lg px-2 py-1 text-[11px] focus:outline-none focus:ring-1 focus:ring-sky-400 font-medium"
+                              title="Update Employee Lifecycle Status"
+                            >
+                              <option value="ACTIVE">Active</option>
+                              <option value="PROBATION">Probation</option>
+                              <option value="RESIGNED">Resigned</option>
+                              <option value="TERMINATED">Terminated</option>
+                            </select>
+
+                            {/* 1-Click Quick Deactivate / Reactivate Button */}
+                            {emp.status === 'TERMINATED' || emp.status === 'RESIGNED' ? (
+                              <button
+                                onClick={() => handleStatusChange(emp.id, 'ACTIVE')}
+                                disabled={actionLoadingId === emp.id}
+                                className="px-2 py-1 rounded-lg bg-emerald-500/20 text-emerald-300 hover:bg-emerald-500/30 border border-emerald-500/30 text-[11px] font-semibold transition-colors"
+                                title="Reactivate Account"
+                              >
+                                {actionLoadingId === emp.id ? '...' : 'Reactivate'}
+                              </button>
+                            ) : (
+                              <button
+                                onClick={() => handleStatusChange(emp.id, 'TERMINATED')}
+                                disabled={actionLoadingId === emp.id}
+                                className="px-2 py-1 rounded-lg bg-rose-500/20 text-rose-300 hover:bg-rose-500/30 border border-rose-500/30 text-[11px] font-semibold transition-colors"
+                                title="Deactivate Account & Block Login"
+                              >
+                                {actionLoadingId === emp.id ? '...' : 'Deactivate'}
+                              </button>
+                            )}
+                          </div>
+                        )}
+
+                        <Button
+                          variant="glass"
+                          size="sm"
+                          onClick={() => open360(emp.id)}
+                          icon={<Eye className="w-3.5 h-3.5 text-sky-400" />}
+                        >
+                          360 View
+                        </Button>
+                      </div>
                     </td>
                   </tr>
                 ))}
@@ -390,9 +533,9 @@ export const EmployeeDirectoryPage: React.FC = () => {
             </div>
           </div>
 
-          <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Email Address</label>
+              <label className="block text-xs font-medium text-slate-300 light:text-slate-700 mb-1">Email Address</label>
               <input
                 type="email"
                 required
@@ -403,7 +546,7 @@ export const EmployeeDirectoryPage: React.FC = () => {
               />
             </div>
             <div>
-              <label className="block text-xs font-medium text-slate-300 mb-1">Phone Number</label>
+              <label className="block text-xs font-medium text-slate-300 light:text-slate-700 mb-1">Phone Number</label>
               <input
                 type="text"
                 value={regForm.phone}
@@ -411,6 +554,19 @@ export const EmployeeDirectoryPage: React.FC = () => {
                 className="w-full glass-input px-3 py-2 text-xs"
                 placeholder="+92 300 1234567"
               />
+            </div>
+            <div>
+              <label className="block text-xs font-medium text-slate-300 light:text-slate-700 mb-1">Gender</label>
+              <select
+                required
+                value={regForm.gender}
+                onChange={(e) => setRegForm({ ...regForm, gender: e.target.value })}
+                className="w-full glass-input px-3 py-2 text-xs"
+              >
+                <option value="MALE">Male</option>
+                <option value="FEMALE">Female</option>
+                <option value="OTHER">Other</option>
+              </select>
             </div>
           </div>
 
@@ -424,7 +580,7 @@ export const EmployeeDirectoryPage: React.FC = () => {
                 className="w-full glass-input px-3 py-2 text-xs"
               >
                 <option value="">Select Department</option>
-                {departments.map(d => (
+                {(departments || []).map(d => (
                   <option key={d.id} value={d.id}>{d.name}</option>
                 ))}
               </select>
@@ -439,7 +595,7 @@ export const EmployeeDirectoryPage: React.FC = () => {
                 disabled={!regForm.department_id}
               >
                 <option value="">Select Designation</option>
-                {filteredDesignations.map(d => (
+                {(filteredDesignations || []).map(d => (
                   <option key={d.id} value={d.id}>{d.title}</option>
                 ))}
               </select>
@@ -472,6 +628,88 @@ export const EmployeeDirectoryPage: React.FC = () => {
                 className="w-full glass-input px-3 py-2 text-xs"
               />
             </div>
+          </div>
+
+          {/* Biometric Face Template Registration Section */}
+          <div className="p-3.5 rounded-xl bg-white/5 light:bg-slate-50 border border-white/10 light:border-slate-200">
+            <div className="flex items-center justify-between mb-1.5">
+              <div className="flex items-center gap-2">
+                <Camera className="w-4 h-4 text-sky-400" />
+                <span className="text-xs font-bold text-white light:text-slate-900">
+                  Record Employee Face for Biometric Attendance
+                </span>
+              </div>
+              {regForm.face_image_data && (
+                <span className="text-[10px] text-emerald-400 light:text-emerald-700 font-semibold flex items-center gap-1">
+                  <Check className="w-3 h-3" /> Template Captured
+                </span>
+              )}
+            </div>
+            <p className="text-[11px] text-slate-400 light:text-slate-600 mb-3">
+              Enroll the employee's face photo now to securely map face recognition verification to their email & account.
+            </p>
+
+            {cameraActive ? (
+              <div className="flex flex-col items-center gap-2">
+                <div className="relative w-48 h-36 rounded-xl overflow-hidden border-2 border-sky-500 shadow-md">
+                  <video ref={videoRef} autoPlay playsInline muted className="w-full h-full object-cover" />
+                </div>
+                <div className="flex gap-2">
+                  <Button size="sm" variant="primary" type="button" onClick={captureFaceSnapshot}>
+                    Snap & Enroll
+                  </Button>
+                  <Button size="sm" variant="ghost" type="button" onClick={stopFaceCamera}>
+                    Cancel
+                  </Button>
+                </div>
+              </div>
+            ) : (
+              <div className="flex flex-wrap items-center gap-3">
+                {regForm.face_image_data ? (
+                  <div className="flex items-center gap-3">
+                    <img
+                      src={regForm.face_image_data}
+                      alt="Enrolled Face"
+                      className="w-14 h-14 rounded-xl object-cover border border-emerald-500/50 shadow-sm"
+                    />
+                    <div className="space-y-1">
+                      <span className="text-xs font-semibold text-emerald-400 light:text-emerald-700 block">
+                        Biometric Face Template Active
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => setRegForm({ ...regForm, face_image_data: '' })}
+                        className="text-[11px] text-rose-400 hover:underline"
+                      >
+                        Remove / Retake Photo
+                      </button>
+                    </div>
+                  </div>
+                ) : (
+                  <>
+                    <Button
+                      size="sm"
+                      variant="glass"
+                      type="button"
+                      icon={<Camera className="w-3.5 h-3.5 text-sky-400" />}
+                      onClick={startFaceCamera}
+                    >
+                      Open Webcam & Record
+                    </Button>
+                    <label className="cursor-pointer px-3 py-1.5 rounded-xl border border-white/15 light:border-slate-300 text-xs text-slate-300 light:text-slate-700 hover:bg-white/5 flex items-center gap-1.5 transition-colors">
+                      <Upload className="w-3.5 h-3.5 text-purple-400" />
+                      <span>Upload Photo File</span>
+                      <input
+                        type="file"
+                        accept="image/*"
+                        className="hidden"
+                        onChange={handlePhotoUpload}
+                      />
+                    </label>
+                  </>
+                )}
+              </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-white/10">
@@ -571,7 +809,7 @@ export const EmployeeDirectoryPage: React.FC = () => {
                 </span>
               </div>
               <ul className="space-y-1 text-slate-300">
-                {selectedEmp360.attrition_risk.factors.map((f: string, i: number) => (
+                {(selectedEmp360.attrition_risk?.factors || []).map((f: string, i: number) => (
                   <li key={i}>• {f}</li>
                 ))}
               </ul>

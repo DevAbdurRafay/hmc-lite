@@ -46,10 +46,10 @@ def get_current_user(
             status_code=status.HTTP_401_UNAUTHORIZED,
             detail={"code": "USER_NOT_FOUND", "message": "User no longer exists", "details": None},
         )
-    if not user.is_active:
+    if not user.is_active or (user.employee and user.employee.status in ("TERMINATED", "INACTIVE", "DEACTIVATED")):
         raise HTTPException(
             status_code=status.HTTP_403_FORBIDDEN,
-            detail={"code": "ACCOUNT_DEACTIVATED", "message": "User account has been deactivated", "details": None},
+            detail={"code": "ACCOUNT_DEACTIVATED", "message": "User account has been deactivated. Please contact Human Resources.", "details": None},
         )
     token_version = payload.get("token_version")
     if token_version is not None and getattr(user, "token_version", None) is not None:

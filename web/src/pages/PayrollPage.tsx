@@ -319,7 +319,7 @@ export default function PayrollPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {runDetails?.payslips?.map((p: any) => (
+                    {(Array.isArray(runDetails?.payslips) ? runDetails.payslips : []).map((p: any) => (
                       <tr key={p.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                           <div>
@@ -406,7 +406,7 @@ export default function PayrollPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {myPayslips.map((p: any) => (
+                    {(Array.isArray(myPayslips) ? myPayslips : []).map((p: any) => (
                       <tr key={p.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
                           {months.find((m) => m.num === p.month)?.name} {p.year}

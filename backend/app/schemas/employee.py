@@ -37,6 +37,7 @@ class EmployeeCreate(BaseModel):
     status: str = "ACTIVE"
     emergency_contact: Optional[str] = None
     basic_salary: float = Field(..., gt=0)
+    face_image_data: Optional[str] = None
 
 
 class EmployeeUpdate(BaseModel):

@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users, CheckCircle2, UserX, AlertTriangle, Clock,
-  Sparkles, RefreshCw, Info, AlertCircle
+  Sparkles, RefreshCw, Info, AlertCircle, MapPin, Play, Square, CheckCheck, Shield
 } from 'lucide-react';
 import {
   BarChart, Bar, LineChart, Line, PieChart, Pie, Cell,
@@ -13,16 +13,22 @@ import { Badge } from '../components/common/Badge';
 import { Skeleton } from '../components/common/Skeleton';
 import { EmptyState } from '../components/common/EmptyState';
 import { apiFetch } from '../services/api';
+import { useAuth } from '../context/AuthContext';
 
-const COLORS = ['#0ea5e9', '#6366f1', '#a855f7', '#ec4899', '#f59e0b', '#10b981'];
+const COLORS = ['#0ea5e9', '#ec4899', '#8b5cf6', '#10b981', '#f59e0b', '#6366f1'];
 
 export const HRDashboard: React.FC = () => {
+  const { user } = useAuth();
   const [data, setData] = useState<any>(null);
+  const [empData, setEmpData] = useState<any>(null);
   const [departments, setDepartments] = useState<any[]>([]);
   const [selectedDept, setSelectedDept] = useState<string>('');
   const [isLoading, setIsLoading] = useState<boolean>(true);
   const [isSummarizing, setIsSummarizing] = useState<boolean>(false);
   const [summaryBullets, setSummaryBullets] = useState<string[] | null>(null);
+  const [isCheckingIn, setIsCheckingIn] = useState(false);
+  const [isCheckingOut, setIsCheckingOut] = useState(false);
+  const [elapsedSeconds, setElapsedSeconds] = useState(0);
 
   const fetchHRData = async () => {
     setIsLoading(true);
@@ -38,13 +44,133 @@ export const HRDashboard: React.FC = () => {
     }
   };
 
+  const fetchHRTimeClock = async () => {
+    if (!user?.employee_id) return;
+    try {
+      const res = await apiFetch<any>(`/analytics/employee/${user.employee_id}`);
+      setEmpData(res);
+    } catch {
+      //
+    }
+  };
+
   useEffect(() => {
     apiFetch<any[]>('/org/departments').then(setDepartments).catch(() => {});
-  }, []);
+    fetchHRTimeClock();
+  }, [user]);
 
   useEffect(() => {
     fetchHRData();
   }, [selectedDept]);
+
+  // Live ticking counter when checked in and not checked out
+  useEffect(() => {
+    let timer: any = null;
+    const isCheckedIn = empData?.today_status && empData.today_status !== 'NOT_CHECKED_IN';
+    const hasCheckedOut = Boolean(empData?.check_out_time);
+
+    if (isCheckedIn && !hasCheckedOut) {
+      timer = setInterval(() => {
+        setElapsedSeconds(prev => prev + 1);
+      }, 1000);
+    } else {
+      setElapsedSeconds(0);
+    }
+    return () => {
+      if (timer) clearInterval(timer);
+    };
+  }, [empData?.today_status, empData?.check_out_time]);
+
+  const formatTimer = (totalSeconds: number) => {
+    const hours = Math.floor(totalSeconds / 3600);
+    const minutes = Math.floor((totalSeconds % 3600) / 60);
+    const seconds = totalSeconds % 60;
+    return `${String(hours).padStart(2, '0')}:${String(minutes).padStart(2, '0')}:${String(seconds).padStart(2, '0')}`;
+  };
+
+  const handleHRCheckIn = () => {
+    if (!navigator.geolocation) {
+      alert('Geolocation is not supported by your browser.');
+      return;
+    }
+    setIsCheckingIn(true);
+    navigator.geolocation.getCurrentPosition(
+      async (pos) => {
+        try {
+          await apiFetch('/attendance/check-in', {
+            method: 'POST',
+            body: JSON.stringify({
+              source: 'WEB',
+              latitude: pos.coords.latitude,
+              longitude: pos.coords.longitude,
+              accuracy: pos.coords.accuracy,
+            }),
+          });
+          await fetchHRTimeClock();
+          await fetchHRData();
+        } catch (err: any) {
+          alert(err.message || 'Check-in failed');
+        } finally {
+          setIsCheckingIn(false);
+        }
+      },
+      (err) => {
+        setIsCheckingIn(false);
+        alert(`GPS location error: ${err.message}. Please allow location access for office check-in.`);
+      },
+      { enableHighAccuracy: true, timeout: 10000 }
+    );
+  };
+
+  const handleHRCheckOut = () => {
+    setIsCheckingOut(true);
+    if (navigator.geolocation) {
+      navigator.geolocation.getCurrentPosition(
+        async (pos) => {
+          try {
+            await apiFetch('/attendance/check-out', {
+              method: 'POST',
+              body: JSON.stringify({
+                source: 'WEB',
+                latitude: pos.coords.latitude,
+                longitude: pos.coords.longitude,
+                accuracy: pos.coords.accuracy,
+              }),
+            });
+            await fetchHRTimeClock();
+            await fetchHRData();
+          } catch (err: any) {
+            alert(err.message || 'Check-out failed');
+          } finally {
+            setIsCheckingOut(false);
+          }
+        },
+        async () => {
+          try {
+            await apiFetch('/attendance/check-out', {
+              method: 'POST',
+              body: JSON.stringify({ source: 'WEB' }),
+            });
+            await fetchHRTimeClock();
+            await fetchHRData();
+          } catch (err: any) {
+            alert(err.message || 'Check-out failed');
+          } finally {
+            setIsCheckingOut(false);
+          }
+        },
+        { enableHighAccuracy: true, timeout: 8000 }
+      );
+    } else {
+      apiFetch('/attendance/check-out', {
+        method: 'POST',
+        body: JSON.stringify({ source: 'WEB' }),
+      }).then(() => {
+        fetchHRTimeClock();
+        fetchHRData();
+      }).catch((err: any) => alert(err.message)).finally(() => setIsCheckingOut(false));
+    }
+  };
 
   const handleAiSummarize = async () => {
     if (!data) return;
@@ -133,16 +259,100 @@ export const HRDashboard: React.FC = () => {
             <h4 className="text-xs font-bold text-purple-200 uppercase tracking-wider">AI Operations Digest</h4>
             <Badge variant="purple" size="sm">Strict Data Grounding</Badge>
           </div>
-          <ul className="space-y-1.5 text-xs sm:text-sm text-slate-200">
+          <ul className="space-y-1.5 text-xs sm:text-sm text-slate-200 light:text-slate-800">
             {summaryBullets.map((bullet, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className="text-purple-400 mt-1">•</span>
-                <span>{bullet}</span>
+                <span className="text-purple-400 mt-1 shrink-0">•</span>
+                <span className="leading-relaxed">
+                  {bullet.split(/(\*\*[^*]+?\*\*)/g).map((part, pIdx) => {
+                    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+                      return (
+                        <strong key={pIdx} className="font-bold text-white light:text-slate-900 tracking-tight">
+                          {part.slice(2, -2).trim()}
+                        </strong>
+                      );
+                    }
+                    return part.replace(/\*\*/g, '');
+                  })}
+                </span>
               </li>
             ))}
           </ul>
         </div>
       )}
+
+      {/* HR Operations Time Clock & Live Ticker */}
+      <GlassCard className="p-4 sm:p-5 light:bg-white light:border-slate-200">
+        <div className="flex flex-col lg:flex-row lg:items-center justify-between gap-4">
+          <div className="space-y-1">
+            <div className="flex items-center gap-2">
+              <Clock className="w-5 h-5 text-sky-400" />
+              <h3 className="font-extrabold text-base text-white light:text-slate-900">
+                HR Operations Time Clock
+              </h3>
+              <Badge variant={empData?.today_status && empData.today_status !== 'NOT_CHECKED_IN' ? 'success' : 'neutral'} size="sm">
+                {empData?.today_status || 'NOT_CHECKED_IN'}
+              </Badge>
+            </div>
+            <p className="text-xs text-slate-400 light:text-slate-600 flex items-center gap-1.5">
+              <MapPin className="w-3.5 h-3.5 text-emerald-400" /> Office GPS Geofence Check-In (No camera required for HR)
+            </p>
+          </div>
+
+          {/* Time & Live Ticker Display */}
+          <div className="flex flex-wrap items-center gap-3">
+            <div className="px-3.5 py-2 rounded-xl bg-white/5 light:bg-slate-100 border border-white/10 light:border-slate-200 text-center min-w-[110px]">
+              <span className="text-[10px] text-slate-400 light:text-slate-500 font-semibold uppercase block">Check-In</span>
+              <span className="text-sm font-bold text-white light:text-slate-900 font-mono">
+                {empData?.check_in_time || '--:--'}
+              </span>
+            </div>
+            <div className="px-3.5 py-2 rounded-xl bg-white/5 light:bg-slate-100 border border-white/10 light:border-slate-200 text-center min-w-[110px]">
+              <span className="text-[10px] text-slate-400 light:text-slate-500 font-semibold uppercase block">Check-Out</span>
+              <span className="text-sm font-bold text-white light:text-slate-900 font-mono">
+                {empData?.check_out_time || '--:--'}
+              </span>
+            </div>
+
+            {empData?.today_status && empData.today_status !== 'NOT_CHECKED_IN' && !empData?.check_out_time && (
+              <div className="px-4 py-2 rounded-xl bg-sky-500/10 light:bg-sky-50 border border-sky-500/20 text-center">
+                <span className="text-[10px] text-sky-400 light:text-sky-600 font-semibold uppercase block flex items-center gap-1 justify-center">
+                  <span className="w-1.5 h-1.5 rounded-full bg-emerald-400 animate-pulse" /> Live Working Timer
+                </span>
+                <span className="text-base font-extrabold text-sky-300 light:text-sky-700 font-mono tracking-wider">
+                  {formatTimer(elapsedSeconds)}
+                </span>
+              </div>
+            )}
+
+            <div>
+              {!empData?.today_status || empData.today_status === 'NOT_CHECKED_IN' ? (
+                <Button
+                  variant="primary"
+                  onClick={handleHRCheckIn}
+                  isLoading={isCheckingIn}
+                  icon={<Play className="w-4 h-4 fill-current" />}
+                >
+                  GPS Check-In
+                </Button>
+              ) : !empData?.check_out_time ? (
+                <Button
+                  variant="danger"
+                  onClick={handleHRCheckOut}
+                  isLoading={isCheckingOut}
+                  icon={<Square className="w-4 h-4 fill-current" />}
+                >
+                  Clock Out
+                </Button>
+              ) : (
+                <div className="flex items-center gap-1.5 text-xs text-emerald-400 light:text-emerald-700 font-bold px-3 py-2 rounded-xl bg-emerald-500/10 border border-emerald-500/20">
+                  <CheckCheck className="w-4 h-4" /> Shift Completed
+                </div>
+              )}
+            </div>
+          </div>
+        </div>
+      </GlassCard>
 
       {/* 5 Operational KPIs */}
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-5 gap-4">
@@ -197,8 +407,8 @@ export const HRDashboard: React.FC = () => {
         </GlassCard>
       </div>
 
-      {/* Charts Row: Attendance Trend & Absenteeism */}
-      <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
+      {/* Charts Row: Attendance Trend, Absenteeism, and Gender Diversity */}
+      <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <GlassCard>
           <h3 className="text-sm font-bold text-white light:text-slate-900 mb-4">
             14-Day Attendance Velocity (Present vs Absent)
@@ -240,6 +450,62 @@ export const HRDashboard: React.FC = () => {
             </div>
           ) : (
             <EmptyState description="No departmental absences recorded." />
+          )}
+        </GlassCard>
+
+        <GlassCard>
+          <h3 className="text-sm font-bold text-white light:text-slate-900 mb-2 flex items-center justify-between">
+            <span>Gender Diversity Ratio</span>
+            <span className="text-[10px] px-2 py-0.5 rounded-full bg-pink-500/15 text-pink-400 font-semibold border border-pink-500/20">
+              Live Biometrics
+            </span>
+          </h3>
+          <p className="text-xs text-slate-400 light:text-slate-500 mb-4">Accurate active employee gender distribution</p>
+          {data?.gender_distribution?.length > 0 ? (
+            <div className="space-y-4">
+              <div className="h-44">
+                <ResponsiveContainer width="100%" height="100%">
+                  <PieChart>
+                    <Pie
+                      data={data.gender_distribution}
+                      dataKey="value"
+                      nameKey="label"
+                      cx="50%"
+                      cy="50%"
+                      innerRadius={42}
+                      outerRadius={68}
+                      paddingAngle={4}
+                    >
+                      {data.gender_distribution.map((entry: any, index: number) => {
+                        const lbl = (entry.label || '').toUpperCase();
+                        const color = lbl === 'FEMALE' ? '#ec4899' : lbl === 'MALE' ? '#0ea5e9' : '#8b5cf6';
+                        return <Cell key={`gender-${index}`} fill={color} />;
+                      })}
+                    </Pie>
+                    <Tooltip contentStyle={{ backgroundColor: '#0f172a', borderColor: '#334155', borderRadius: '0.75rem', color: '#fff' }} />
+                  </PieChart>
+                </ResponsiveContainer>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-2 text-xs">
+                {data.gender_distribution.map((item: any, idx: number) => {
+                  const lbl = (item.label || '').toUpperCase();
+                  const dotColor = lbl === 'FEMALE' ? 'bg-pink-500' : lbl === 'MALE' ? 'bg-sky-500' : 'bg-purple-500';
+                  const total = data.gender_distribution.reduce((acc: number, cur: any) => acc + (cur.value || 0), 0);
+                  const pct = total > 0 ? Math.round((item.value / total) * 100) : 0;
+                  return (
+                    <div key={idx} className="flex items-center justify-between p-2 rounded-xl bg-white/5 border border-white/10">
+                      <div className="flex items-center gap-2 truncate">
+                        <span className={`w-2.5 h-2.5 rounded-full ${dotColor} shrink-0`} />
+                        <span className="text-slate-300 light:text-slate-700 capitalize font-medium">{item.label}</span>
+                      </div>
+                      <span className="font-bold text-white light:text-slate-900 ml-1">{item.value} <span className="text-slate-400 font-normal">({pct}%)</span></span>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          ) : (
+            <EmptyState description="Gender distribution updates as staff are registered." />
           )}
         </GlassCard>
       </div>

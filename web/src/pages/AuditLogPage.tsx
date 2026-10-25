@@ -30,7 +30,8 @@ export default function AuditLogPage() {
     queryFn: () => api.getAuditLogs({ action: actionFilter || undefined, limit: 100 }),
   });
 
-  const filteredLogs = logs?.filter((log: any) => {
+  const logsList = Array.isArray(logs) ? logs : ((logs as any)?.items || []);
+  const filteredLogs = logsList.filter((log: any) => {
     if (!searchTerm) return true;
     const term = searchTerm.toLowerCase();
     return (
@@ -125,7 +126,7 @@ export default function AuditLogPage() {
                 </tr>
               </thead>
               <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                {filteredLogs.map((log: any) => (
+                {(filteredLogs || []).map((log: any) => (
                   <tr key={log.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                     <td className="px-6 py-4 font-mono text-xs text-gray-700 dark:text-gray-300">
                       <div>

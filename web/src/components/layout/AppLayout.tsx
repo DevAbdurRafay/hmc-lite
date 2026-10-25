@@ -8,6 +8,7 @@ import {
 import { useAuth } from '../../context/AuthContext';
 import { Header } from './Header';
 import { AIChatDrawer } from '../ai/AIChatDrawer';
+import { ErrorBoundary } from '../common/ErrorBoundary';
 
 export const AppLayout: React.FC = () => {
   const { user } = useAuth();
@@ -168,7 +169,9 @@ export const AppLayout: React.FC = () => {
             </button>
           </div>
 
-          <Outlet />
+          <ErrorBoundary>
+            <Outlet />
+          </ErrorBoundary>
         </main>
       </div>
 

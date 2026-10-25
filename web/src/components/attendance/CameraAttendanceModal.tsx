@@ -100,12 +100,29 @@ export const CameraAttendanceModal: React.FC<CameraAttendanceModalProps> = ({
     setErrorDetails(null);
 
     try {
+      let imageBase64: string | undefined = undefined;
+      if (videoRef.current && cameraActive) {
+        try {
+          const canvas = document.createElement('canvas');
+          canvas.width = videoRef.current.videoWidth || 320;
+          canvas.height = videoRef.current.videoHeight || 240;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(videoRef.current, 0, 0, canvas.width, canvas.height);
+            imageBase64 = canvas.toDataURL('image/jpeg', 0.85);
+          }
+        } catch (e) {
+          console.warn('Canvas frame capture fallback', e);
+        }
+      }
+
       const payload = {
         latitude: location?.lat || 24.8607,
         longitude: location?.lng || 67.0011,
         accuracy: location?.accuracy || 15.0,
         source: 'CAMERA',
         face_detected: faceDetected,
+        image_data: imageBase64,
       };
 
       const result = await apiFetch('/attendance/check-in', {

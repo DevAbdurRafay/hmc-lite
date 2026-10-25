@@ -73,7 +73,7 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
   inputClassName = '',
 }) => {
   const [showPassword, setShowPassword] = useState(false);
-  const { isValid, rules } = evaluatePasswordRules(value);
+  const { rules } = evaluatePasswordRules(value);
 
   return (
     <div className={`space-y-1.5 ${className}`}>
@@ -114,21 +114,12 @@ export const PasswordInput: React.FC<PasswordInputProps> = ({
         </button>
       </div>
 
-      {/* Dynamic Green/Red Password Requirements Checklist */}
-      {showChecklist && (
-        <div className="mt-2.5 p-3 rounded-xl bg-black/30 border border-white/10 space-y-2">
+      {/* Dynamic Green/Red Password Requirements Checklist - ONLY shown when input has value */}
+      {showChecklist && value.length > 0 && (
+        <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/10 space-y-2 animate-in fade-in duration-200">
           <div className="flex items-center justify-between">
             <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
               Password Requirements Checklist
-            </span>
-            <span
-              className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                isValid
-                  ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                  : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-              }`}
-            >
-              {isValid ? 'All Met' : 'Incomplete'}
             </span>
           </div>
 

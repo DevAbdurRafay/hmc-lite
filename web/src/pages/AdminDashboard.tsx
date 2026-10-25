@@ -141,11 +141,22 @@ export const AdminDashboard: React.FC = () => {
             <h4 className="text-xs font-bold text-purple-200 uppercase tracking-wider">AI Executive Briefing</h4>
             <Badge variant="purple" size="sm">Strict Data Grounding</Badge>
           </div>
-          <ul className="space-y-1.5 text-xs sm:text-sm text-slate-200">
+          <ul className="space-y-1.5 text-xs sm:text-sm text-slate-200 light:text-slate-800">
             {summaryBullets.map((bullet, i) => (
               <li key={i} className="flex items-start gap-2">
-                <span className="text-purple-400 mt-1">•</span>
-                <span>{bullet}</span>
+                <span className="text-purple-400 mt-1 shrink-0">•</span>
+                <span className="leading-relaxed">
+                  {bullet.split(/(\*\*[^*]+?\*\*)/g).map((part, pIdx) => {
+                    if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+                      return (
+                        <strong key={pIdx} className="font-bold text-white light:text-slate-900 tracking-tight">
+                          {part.slice(2, -2).trim()}
+                        </strong>
+                      );
+                    }
+                    return part.replace(/\*\*/g, '');
+                  })}
+                </span>
               </li>
             ))}
           </ul>
@@ -156,85 +167,85 @@ export const AdminDashboard: React.FC = () => {
       <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
         {/* Headcount */}
         <GlassCard hoverLift>
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 light:text-slate-500 mb-1">
-                <span>{kpis.headcount?.label || 'Total Headcount'}</span>
-                <span title={kpis.headcount?.tooltip}><Info className="w-3 h-3 text-slate-400" /></span>
+                <span className="truncate">{kpis.headcount?.label || 'Total Headcount'}</span>
+                <span title={kpis.headcount?.tooltip} className="shrink-0"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight">
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight truncate">
                 {kpis.headcount?.value ?? 0}
               </h3>
             </div>
-            <div className="p-2.5 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/20">
+            <div className="shrink-0 p-2.5 rounded-xl bg-sky-500/15 text-sky-400 border border-sky-500/20">
               <Users className="w-5 h-5" />
             </div>
           </div>
-          <div className="mt-3 flex items-center gap-1 text-xs text-emerald-400">
-            <ArrowUpRight className="w-3.5 h-3.5" />
-            <span>Active & probation employees</span>
+          <div className="mt-3 flex items-center gap-1 text-xs text-emerald-400 truncate">
+            <ArrowUpRight className="w-3.5 h-3.5 shrink-0" />
+            <span className="truncate">Active & probation employees</span>
           </div>
         </GlassCard>
 
         {/* Attrition YTD */}
         <GlassCard hoverLift>
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 light:text-slate-500 mb-1">
-                <span>{kpis.attrition_ytd?.label || 'Attrition (YTD)'}</span>
-                <span title={kpis.attrition_ytd?.tooltip}><Info className="w-3 h-3 text-slate-400" /></span>
+                <span className="truncate">{kpis.attrition_ytd?.label || 'Attrition (YTD)'}</span>
+                <span title={kpis.attrition_ytd?.tooltip} className="shrink-0"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight">
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight truncate">
                 {kpis.attrition_ytd?.value ?? '0.0%'}
               </h3>
             </div>
-            <div className="p-2.5 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/20">
+            <div className="shrink-0 p-2.5 rounded-xl bg-purple-500/15 text-purple-400 border border-purple-500/20">
               <TrendingDown className="w-5 h-5" />
             </div>
           </div>
-          <div className="mt-3 text-xs text-slate-400">
+          <div className="mt-3 text-xs text-slate-400 truncate">
             <span>Year-to-date annualized turnover</span>
           </div>
         </GlassCard>
 
         {/* Monthly Payroll Cost */}
         <GlassCard hoverLift>
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 light:text-slate-500 mb-1">
-                <span>{kpis.payroll_cost?.label || 'Monthly Payroll'}</span>
-                <span title={kpis.payroll_cost?.tooltip}><Info className="w-3 h-3 text-slate-400" /></span>
+                <span className="truncate">{kpis.payroll_cost?.label || 'Monthly Payroll'}</span>
+                <span title={kpis.payroll_cost?.tooltip} className="shrink-0"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight">
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight truncate">
                 {kpis.payroll_cost?.value ?? 'PKR 0'}
               </h3>
             </div>
-            <div className="p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
+            <div className="shrink-0 p-2.5 rounded-xl bg-emerald-500/15 text-emerald-400 border border-emerald-500/20">
               <DollarSign className="w-5 h-5" />
             </div>
           </div>
-          <div className="mt-3 text-xs text-slate-400">
+          <div className="mt-3 text-xs text-slate-400 truncate">
             <span>Total gross payroll in PKR</span>
           </div>
         </GlassCard>
 
         {/* Average Salary */}
         <GlassCard hoverLift>
-          <div className="flex items-start justify-between">
-            <div>
+          <div className="flex items-start justify-between gap-3">
+            <div className="min-w-0 flex-1">
               <div className="flex items-center gap-1.5 text-xs font-medium text-slate-400 light:text-slate-500 mb-1">
-                <span>{kpis.average_salary?.label || 'Average Salary'}</span>
-                <span title={kpis.average_salary?.tooltip}><Info className="w-3 h-3 text-slate-400" /></span>
+                <span className="truncate">{kpis.average_salary?.label || 'Average Salary'}</span>
+                <span title={kpis.average_salary?.tooltip} className="shrink-0"><Info className="w-3.5 h-3.5 text-slate-400" /></span>
               </div>
-              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight">
+              <h3 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight truncate">
                 {kpis.average_salary?.value ?? 'PKR 0'}
               </h3>
             </div>
-            <div className="p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/20">
+            <div className="shrink-0 p-2.5 rounded-xl bg-amber-500/15 text-amber-400 border border-amber-500/20">
               <Award className="w-5 h-5" />
             </div>
           </div>
-          <div className="mt-3 text-xs text-slate-400">
+          <div className="mt-3 text-xs text-slate-400 truncate">
             <span>Mean gross salary per employee</span>
           </div>
         </GlassCard>

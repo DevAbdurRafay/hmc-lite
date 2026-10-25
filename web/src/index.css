@@ -1,4 +1,53 @@
-@import url('https://fonts.googleapis.com/css2?family=Montserrat:ital,wght@0,300;0,400;0,500;0,600;0,700;0,800;0,900;1,400;1,600&display=swap');
+/* Google Fonts - Montserrat direct font-face definitions with block display */
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 300;
+  font-display: block;
+  src: url(https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCs16Ew-.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 400;
+  font-display: block;
+  src: url(https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtr6Ew-.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 500;
+  font-display: block;
+  src: url(https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCtZ6Ew-.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 600;
+  font-display: block;
+  src: url(https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCu170w-.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 700;
+  font-display: block;
+  src: url(https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCuM70w-.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 800;
+  font-display: block;
+  src: url(https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCvr70w-.ttf) format('truetype');
+}
+@font-face {
+  font-family: 'Montserrat';
+  font-style: normal;
+  font-weight: 900;
+  font-display: block;
+  src: url(https://fonts.gstatic.com/s/montserrat/v31/JTUHjIg1_i6t8kCHKm4532VJOt5-QNFgpCvC70w-.ttf) format('truetype');
+}
 
 @tailwind base;
 @tailwind components;
@@ -16,12 +65,12 @@
                  radial-gradient(circle at 50% 40%, rgba(219, 234, 254, 0.5) 0%, transparent 70%);
 }
 
-*, *::before, *::after, input, button, select, textarea {
-  font-family: 'Montserrat', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+html, body, #root, *, *::before, *::after, input, button, select, textarea, div, p, span, h1, h2, h3, h4, h5, h6, table, tr, th, td, label {
+  font-family: 'Montserrat', sans-serif !important;
 }
 
 body {
-  font-family: 'Montserrat', system-ui, -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif !important;
+  font-family: 'Montserrat', sans-serif !important;
   background-color: #080c14;
   background-image: var(--bg-gradient);
   background-attachment: fixed;
@@ -29,9 +78,17 @@ body {
   min-height: 100vh;
 }
 
-.light body {
-  background-color: #f8fafc;
-  color: #0f172a;
+/* ================= COMPREHENSIVE LIGHT THEME RULES ================= */
+.light, .light body {
+  background-color: #f1f5f9 !important;
+  background-image: radial-gradient(circle at 10% 10%, rgba(224, 242, 254, 0.8) 0%, transparent 50%),
+                    radial-gradient(circle at 90% 80%, rgba(241, 245, 249, 0.9) 0%, transparent 60%),
+                    radial-gradient(circle at 50% 40%, rgba(219, 234, 254, 0.5) 0%, transparent 70%) !important;
+  color: #0f172a !important;
+}
+
+.light h1, .light h2, .light h3, .light h4, .light h5, .light h6 {
+  color: #0f172a !important;
 }
 
 /* Glassmorphism Classes */
@@ -45,9 +102,25 @@ body {
 }
 
 .light .glass-card {
-  background: rgba(255, 255, 255, 0.7);
-  border: 1px solid rgba(226, 232, 240, 0.8);
-  box-shadow: 0 8px 32px 0 rgba(148, 163, 184, 0.12);
+  background: rgba(255, 255, 255, 0.94) !important;
+  border: 1px solid rgba(203, 213, 225, 0.85) !important;
+  box-shadow: 0 8px 30px 0 rgba(148, 163, 184, 0.15) !important;
+}
+
+.light .glass-card .text-white,
+.light .glass-card .text-slate-100,
+.light .glass-card .text-slate-200,
+.light .glass-card .text-slate-300,
+.light .glass-card .text-gray-900,
+.light .glass-card .text-gray-800 {
+  color: #0f172a !important;
+}
+
+.light .glass-card .text-slate-400,
+.light .glass-card .text-slate-500,
+.light .glass-card .text-gray-500,
+.light .glass-card .text-gray-600 {
+  color: #475569 !important;
 }
 
 .glass-panel {
@@ -60,9 +133,21 @@ body {
 }
 
 .light .glass-panel {
-  background: rgba(255, 255, 255, 0.88);
-  border: 1px solid rgba(203, 213, 225, 0.85);
-  box-shadow: 0 12px 40px 0 rgba(100, 116, 139, 0.12);
+  background: rgba(255, 255, 255, 0.96) !important;
+  border: 1px solid rgba(203, 213, 225, 0.85) !important;
+  box-shadow: 0 12px 40px 0 rgba(100, 116, 139, 0.14) !important;
+}
+
+.light .glass-panel .text-white,
+.light .glass-panel .text-slate-100,
+.light .glass-panel .text-slate-200,
+.light .glass-panel .text-slate-300 {
+  color: #0f172a !important;
+}
+
+.light .glass-panel .text-slate-400,
+.light .glass-panel .text-slate-500 {
+  color: #475569 !important;
 }
 
 .glass-input {
@@ -74,10 +159,151 @@ body {
   transition: all 0.2s ease;
 }
 
+/* =========================================================================
+   PERMANENT AUTOFILL / PRE-SET INPUT DARKENING (NO WHITE BACKGROUNDS)
+   Ensures browser autofilled / saved credentials remain dark and readable
+   ========================================================================= */
+input:-webkit-autofill,
+input:-webkit-autofill:hover,
+input:-webkit-autofill:focus,
+input:-webkit-autofill:active,
+textarea:-webkit-autofill,
+textarea:-webkit-autofill:hover,
+textarea:-webkit-autofill:focus,
+textarea:-webkit-autofill:active,
+select:-webkit-autofill,
+select:-webkit-autofill:hover,
+select:-webkit-autofill:focus,
+select:-webkit-autofill:active {
+  -webkit-text-fill-color: #f8fafc !important;
+  color: #f8fafc !important;
+  -webkit-box-shadow: 0 0 0 1000px #0b111e inset !important;
+  box-shadow: 0 0 0 1000px #0b111e inset !important;
+  background-color: #0b111e !important;
+  transition: background-color 5000000s ease-in-out 0s !important;
+  caret-color: #38bdf8 !important;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+input:autofill,
+textarea:autofill,
+select:autofill {
+  -webkit-text-fill-color: #f8fafc !important;
+  color: #f8fafc !important;
+  box-shadow: 0 0 0 1000px #0b111e inset !important;
+  background-color: #0b111e !important;
+  caret-color: #38bdf8 !important;
+  font-family: 'Montserrat', sans-serif !important;
+}
+
+/* Light Theme Autofill */
+.light input:-webkit-autofill,
+.light input:-webkit-autofill:hover,
+.light input:-webkit-autofill:focus,
+.light input:-webkit-autofill:active,
+.light textarea:-webkit-autofill,
+.light select:-webkit-autofill {
+  -webkit-text-fill-color: #0f172a !important;
+  color: #0f172a !important;
+  -webkit-box-shadow: 0 0 0 1000px #f8fafc inset !important;
+  box-shadow: 0 0 0 1000px #f8fafc inset !important;
+  background-color: #f8fafc !important;
+  caret-color: #0284c7 !important;
+}
+
+/* Explicit Select & Option Styling for 100% visible dropdown menus */
+select {
+  cursor: pointer;
+}
+
+select option {
+  background-color: #0f172a !important;
+  color: #f8fafc !important;
+  font-weight: 500 !important;
+  padding: 10px 14px !important;
+  font-family: 'Montserrat', -apple-system, BlinkMacSystemFont, sans-serif !important;
+}
+
+select option:checked,
+select option:hover {
+  background-color: #0284c7 !important;
+  color: #ffffff !important;
+}
+
 .light .glass-input {
-  background: rgba(255, 255, 255, 0.9);
-  border: 1px solid rgba(203, 213, 225, 0.9);
-  color: #0f172a;
+  background: rgba(255, 255, 255, 0.95) !important;
+  border: 1px solid rgba(203, 213, 225, 0.95) !important;
+  color: #0f172a !important;
+}
+
+.light select option {
+  background-color: #ffffff !important;
+  color: #0f172a !important;
+  font-weight: 500 !important;
+  padding: 10px 14px !important;
+}
+
+.light select option:checked,
+.light select option:hover {
+  background-color: #e0f2fe !important;
+  color: #0369a1 !important;
+}
+
+.light .glass-input::placeholder {
+  color: #94a3b8 !important;
+}
+
+/* Light Theme Navigation & Layout */
+.light aside {
+  background: rgba(255, 255, 255, 0.96) !important;
+  border-right: 1px solid rgba(226, 232, 240, 0.9) !important;
+}
+.light aside .text-white,
+.light aside .text-slate-200,
+.light aside .text-slate-300 {
+  color: #0f172a !important;
+}
+.light aside .text-slate-400,
+.light aside .text-slate-500 {
+  color: #64748b !important;
+}
+
+.light header {
+  background: rgba(255, 255, 255, 0.92) !important;
+  border-bottom: 1px solid rgba(226, 232, 240, 0.9) !important;
+}
+.light header .text-white,
+.light header .text-slate-100,
+.light header .text-slate-200 {
+  color: #0f172a !important;
+}
+.light header .text-slate-400,
+.light header .text-slate-500 {
+  color: #64748b !important;
+}
+
+/* Light Theme Data Tables */
+.light table {
+  background: transparent !important;
+}
+.light table th {
+  color: #334155 !important;
+  background: rgba(241, 245, 249, 0.9) !important;
+  border-color: rgba(226, 232, 240, 0.9) !important;
+}
+.light table td {
+  color: #0f172a !important;
+  border-color: rgba(226, 232, 240, 0.85) !important;
+}
+.light table td .text-white,
+.light table td .text-slate-100,
+.light table td .text-slate-200,
+.light table td .text-slate-300 {
+  color: #0f172a !important;
+}
+.light table td .text-slate-400,
+.light table td .text-slate-500 {
+  color: #475569 !important;
 }
 
 .glass-input:focus {

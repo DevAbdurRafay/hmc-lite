@@ -1,10 +1,11 @@
 import React, { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
-import { Building2, Shield, Clock, MapPin, Sparkles, ArrowRight, Eye, EyeOff, Check, X } from 'lucide-react';
+import { Building2, Clock, MapPin, ArrowRight, Eye, EyeOff, Check, X } from 'lucide-react';
 import { GlassCard } from '../components/common/GlassCard';
 import { Button } from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
 import { apiFetch } from '../services/api';
+import { FallingLightAnimation } from '../components/common/FallingLightAnimation';
 
 export const FirstRunSetupPage: React.FC = () => {
   const navigate = useNavigate();
@@ -32,6 +33,13 @@ export const FirstRunSetupPage: React.FC = () => {
   ];
   const isPasswordValid = passwordChecks.every((c) => c.valid);
 
+  const cleanAdminEmail = adminEmail.trim().toLowerCase();
+  const hasAtSymbol = cleanAdminEmail.includes('@');
+  const emailParts = cleanAdminEmail.split('@');
+  const hasPrefix = hasAtSymbol && emailParts[0].trim().length > 0;
+  const endsWithApp = cleanAdminEmail.endsWith('.app') && hasAtSymbol && (emailParts[1]?.length || 0) >= 4 && emailParts[1].endsWith('.app');
+  const isEmailValid = hasPrefix && endsWithApp;
+
   const handleUseCurrentLocation = () => {
     if (navigator.geolocation) {
       navigator.geolocation.getCurrentPosition(
@@ -47,8 +55,13 @@ export const FirstRunSetupPage: React.FC = () => {
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
 
+    if (!isEmailValid) {
+      setError('Admin email must contain "@" and end with ".app" (e.g. admin@acmetech.app).');
+      return;
+    }
+
     if (!isPasswordValid) {
-      setError('Please fulfill all password security requirements in the checklist below.');
+      setError('Please fulfill all password security requirements in the checklist.');
       return;
     }
 
@@ -91,17 +104,29 @@ export const FirstRunSetupPage: React.FC = () => {
   };
 
   return (
-    <div className="min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8">
-      <div className="w-full max-w-2xl animate-in fade-in duration-300">
+    <div className="relative min-h-screen flex items-center justify-center p-4 sm:p-6 lg:p-8 bg-[#090d16] text-slate-100 font-sans overflow-hidden select-none">
+      {/* Gentle Falling Light Animation (Top to Bottom Continuous) */}
+      <FallingLightAnimation density={34} speedMultiplier={0.9} />
+
+      {/* Subtle tech background grid pattern */}
+      <div
+        className="pointer-events-none absolute inset-0 z-0 opacity-15"
+        style={{
+          backgroundImage: `radial-gradient(rgba(255, 255, 255, 0.12) 1px, transparent 1px)`,
+          backgroundSize: '32px 32px',
+        }}
+      />
+
+      <div className="w-full max-w-2xl relative z-10 animate-in fade-in duration-300">
         {/* Header Branding */}
-        <div className="text-center mb-8">
-          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-violet-600 text-white font-bold text-2xl shadow-xl shadow-sky-500/20 mb-3">
+        <div className="text-center mb-6">
+          <div className="inline-flex items-center justify-center w-14 h-14 rounded-2xl bg-gradient-to-tr from-sky-500 via-indigo-500 to-violet-600 text-white font-black text-2xl shadow-xl shadow-sky-500/20 mb-3">
             HL
           </div>
-          <h1 className="text-2xl sm:text-3xl font-extrabold text-white light:text-slate-900 tracking-tight">
+          <h1 className="text-2xl sm:text-3xl font-black text-white tracking-tight">
             First-Run Company Setup
           </h1>
-          <p className="text-sm text-slate-400 light:text-slate-500 max-w-md mx-auto mt-1">
+          <p className="text-sm text-slate-400 max-w-md mx-auto mt-1">
             Initialize your organization profile, primary administrator credentials, and office geofence.
           </p>
         </div>
@@ -109,7 +134,7 @@ export const FirstRunSetupPage: React.FC = () => {
         <GlassCard variant="panel" className="border-white/15 shadow-2xl">
           <form onSubmit={handleSubmit} className="space-y-6">
             {error && (
-              <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-medium">
+              <div className="p-3.5 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold animate-in shake">
                 {error}
               </div>
             )}
@@ -125,10 +150,11 @@ export const FirstRunSetupPage: React.FC = () => {
                   <input
                     type="text"
                     required
+                    autoComplete="off"
                     value={companyName}
                     onChange={(e) => setCompanyName(e.target.value)}
                     className="w-full glass-input px-3.5 py-2.5 text-sm"
-                    placeholder="e.g. Saylani Tech Solutions"
+                    placeholder="e.g. Acme Tech Solutions"
                   />
                 </div>
                 <div>
@@ -136,10 +162,11 @@ export const FirstRunSetupPage: React.FC = () => {
                   <input
                     type="email"
                     required
+                    autoComplete="off"
                     value={adminEmail}
                     onChange={(e) => setAdminEmail(e.target.value)}
                     className="w-full glass-input px-3.5 py-2.5 text-sm"
-                    placeholder="admin@company.com"
+                    placeholder="admin@acmetech.app"
                   />
                 </div>
                 <div>
@@ -151,7 +178,7 @@ export const FirstRunSetupPage: React.FC = () => {
                       value={adminPassword}
                       onChange={(e) => setAdminPassword(e.target.value)}
                       className="w-full glass-input px-3.5 pr-11 py-2.5 text-sm"
-                      placeholder="Create a strong password"
+                      placeholder="Create master password"
                     />
                     <button
                       type="button"
@@ -167,44 +194,37 @@ export const FirstRunSetupPage: React.FC = () => {
                     </button>
                   </div>
 
-                  {/* Password Requirements Checklist with green/red ticks */}
-                  <div className="mt-2.5 p-3 rounded-xl bg-black/30 border border-white/10 space-y-2">
-                    <div className="flex items-center justify-between">
-                      <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                        Password Requirements Checklist
-                      </span>
-                      <span
-                        className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                          isPasswordValid
-                            ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                            : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                        }`}
-                      >
-                        {isPasswordValid ? 'All Met' : 'Incomplete'}
-                      </span>
+                  {/* Password Requirements Checklist - ONLY SHOWN WHEN USER ENTERED TEXT */}
+                  {adminPassword.length > 0 && (
+                    <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/10 space-y-2 animate-in fade-in duration-200">
+                      <div className="flex items-center justify-between">
+                        <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                          Password Requirements Checklist
+                        </span>
+                      </div>
+                      <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                        {passwordChecks.map((chk) => (
+                          <div
+                            key={chk.id}
+                            className={`flex items-center gap-2 text-xs transition-colors py-0.5 ${
+                              chk.valid ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'
+                            }`}
+                          >
+                            {chk.valid ? (
+                              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                                <Check className="w-2.5 h-2.5 stroke-[3]" />
+                              </span>
+                            ) : (
+                              <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                                <X className="w-2.5 h-2.5 stroke-[3]" />
+                              </span>
+                            )}
+                            <span>{chk.label}</span>
+                          </div>
+                        ))}
+                      </div>
                     </div>
-                    <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-                      {passwordChecks.map((chk) => (
-                        <div
-                          key={chk.id}
-                          className={`flex items-center gap-2 text-xs transition-colors py-0.5 ${
-                            chk.valid ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'
-                          }`}
-                        >
-                          {chk.valid ? (
-                            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
-                              <Check className="w-2.5 h-2.5 stroke-[3]" />
-                            </span>
-                          ) : (
-                            <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
-                              <X className="w-2.5 h-2.5 stroke-[3]" />
-                            </span>
-                          )}
-                          <span>{chk.label}</span>
-                        </div>
-                      ))}
-                    </div>
-                  </div>
+                  )}
                 </div>
               </div>
             </div>
@@ -306,3 +326,5 @@ export const FirstRunSetupPage: React.FC = () => {
     </div>
   );
 };
+
+export default FirstRunSetupPage;

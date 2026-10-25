@@ -33,7 +33,7 @@ class Settings(BaseSettings):
     COMPANY_NAME: Optional[str] = "Saylani Tech Solutions"
 
     # CORS
-    CORS_ORIGINS: str = "http://localhost:5173,http://localhost:19006,http://localhost:3000,http://localhost:8081"
+    CORS_ORIGINS: str = "http://localhost:5173,http://127.0.0.1:5173,http://localhost:8000,http://127.0.0.1:8000,http://localhost:3000,http://127.0.0.1:3000,http://localhost:19006,http://localhost:8081"
 
     # AI Configuration
     AI_PROVIDER: str = "groq"  # groq | gemini
@@ -42,8 +42,8 @@ class Settings(BaseSettings):
     AI_API_KEY: Optional[str] = ""
     AI_MODEL_GROQ: str = "qwen/qwen3.8-27b"
     AI_MODEL_GEMINI: str = "gemini-flash-latest"
-    AI_TIMEOUT_SECONDS: int = 15
-    AI_RATE_LIMIT_PER_HOUR: int = 20
+    AI_TIMEOUT_SECONDS: int = 35
+    AI_RATE_LIMIT_PER_HOUR: int = 120
 
     # Camera & Attendance Rules
     FACE_MIN_GPS_ACCURACY_M: float = 100.0
@@ -52,7 +52,11 @@ class Settings(BaseSettings):
 
     @property
     def cors_origins_list(self) -> List[str]:
-        return [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        origins = [origin.strip() for origin in self.CORS_ORIGINS.split(",") if origin.strip()]
+        for default_dev_origin in ["http://localhost:5173", "http://127.0.0.1:5173", "http://localhost:8000", "http://127.0.0.1:8000"]:
+            if default_dev_origin not in origins:
+                origins.append(default_dev_origin)
+        return origins
 
     @property
     def active_ai_key(self) -> Optional[str]:

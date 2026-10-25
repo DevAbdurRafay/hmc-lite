@@ -503,7 +503,7 @@ export default function OrganizationSetupPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {departments.map((d: any) => (
+                    {(Array.isArray(departments) ? departments : []).map((d: any) => (
                       <tr key={d.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">{d.name}</td>
                         <td className="px-6 py-4 font-mono text-xs">{d.code}</td>
@@ -555,7 +555,7 @@ export default function OrganizationSetupPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {designations.map((d: any) => (
+                    {(Array.isArray(designations) ? designations : []).map((d: any) => (
                       <tr key={d.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">{d.title}</td>
                         <td className="px-6 py-4">{d.department_name || '-'}</td>
@@ -613,7 +613,7 @@ export default function OrganizationSetupPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {leaveTypes.map((t: any) => (
+                    {(Array.isArray(leaveTypes) ? leaveTypes : []).map((t: any) => (
                       <tr key={t.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">{t.name}</td>
                         <td className="px-6 py-4 font-mono text-xs">{t.code}</td>
@@ -674,7 +674,7 @@ export default function OrganizationSetupPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {holidays.map((h: any) => (
+                    {(Array.isArray(holidays) ? holidays : []).map((h: any) => (
                       <tr key={h.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-mono font-medium text-gray-900 dark:text-white">
                           {h.date}
@@ -735,7 +735,7 @@ export default function OrganizationSetupPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {userAccounts.map((u: any) => (
+                    {(Array.isArray(userAccounts) ? userAccounts : []).map((u: any) => (
                       <tr key={u.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
                           {u.full_name || 'System User'}
@@ -1135,44 +1135,37 @@ export default function OrganizationSetupPage() {
               </button>
             </div>
 
-            {/* Dynamic Password checklist with green/red status */}
-            <div className="mt-2.5 p-3 rounded-xl bg-black/30 border border-white/10 space-y-2">
-              <div className="flex items-center justify-between">
-                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                  Password Security Checklist
-                </span>
-                <span
-                  className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                    isHrPasswordValid
-                      ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                      : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                  }`}
-                >
-                  {isHrPasswordValid ? 'All Met' : 'Incomplete'}
-                </span>
+            {/* Dynamic Password checklist with green/red status - ONLY SHOWN WHEN USER ENTERED TEXT */}
+            {hrForm.password.length > 0 && (
+              <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/10 space-y-2 animate-in fade-in duration-200">
+                <div className="flex items-center justify-between">
+                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                    Password Security Checklist
+                  </span>
+                </div>
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-xs">
+                  {hrPasswordChecks.map((chk) => (
+                    <div
+                      key={chk.id}
+                      className={`flex items-center gap-2 py-0.5 transition-colors ${
+                        chk.valid ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'
+                      }`}
+                    >
+                      {chk.valid ? (
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                          <Check className="w-2.5 h-2.5 stroke-[3]" />
+                        </span>
+                      ) : (
+                        <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                          <X className="w-2.5 h-2.5 stroke-[3]" />
+                        </span>
+                      )}
+                      <span>{chk.label}</span>
+                    </div>
+                  ))}
+                </div>
               </div>
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-xs">
-                {hrPasswordChecks.map((chk) => (
-                  <div
-                    key={chk.id}
-                    className={`flex items-center gap-2 py-0.5 transition-colors ${
-                      chk.valid ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'
-                    }`}
-                  >
-                    {chk.valid ? (
-                      <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
-                        <Check className="w-2.5 h-2.5 stroke-[3]" />
-                      </span>
-                    ) : (
-                      <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
-                        <X className="w-2.5 h-2.5 stroke-[3]" />
-                      </span>
-                    )}
-                    <span>{chk.label}</span>
-                  </div>
-                ))}
-              </div>
-            </div>
+            )}
           </div>
 
           <div className="flex justify-end gap-3 pt-3 border-t border-gray-200 dark:border-gray-700">

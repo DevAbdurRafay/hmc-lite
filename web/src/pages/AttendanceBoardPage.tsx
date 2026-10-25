@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { useQuery, useMutation, useQueryClient } from '@tanstack/react-query';
 import {
   Calendar,
@@ -15,9 +15,12 @@ import {
   FileEdit,
   History,
   ShieldCheck,
+  FileText,
+  Download,
+  Users
 } from 'lucide-react';
 import { useAuth } from '../context/AuthContext';
-import { api } from '../services/api';
+import { api, apiFetch } from '../services/api';
 import GlassCard from '../components/common/GlassCard';
 import Button from '../components/common/Button';
 import Badge from '../components/common/Badge';
@@ -36,11 +39,49 @@ export default function AttendanceBoardPage() {
   // Filters & State
   const today = new Date().toISOString().split('T')[0];
   const [selectedDate, setSelectedDate] = useState(today);
-  const [activeTab, setActiveTab] = useState<'board' | 'corrections' | 'my-history'>(
+  const [activeTab, setActiveTab] = useState<'board' | 'corrections' | 'my-history' | 'report'>(
     isEmployee ? 'my-history' : 'board'
   );
   const [showCameraModal, setShowCameraModal] = useState(false);
   const [cameraType, setCameraType] = useState<'check-in' | 'check-out'>('check-in');
+
+  // Manual Check-Out state for HR
+  const [clockingOutStaffId, setClockingOutStaffId] = useState<number | null>(null);
+
+  // Report tab states
+  const currentMonth = new Date().getMonth() + 1;
+  const currentYear = new Date().getFullYear();
+  const [reportMonth, setReportMonth] = useState<number>(currentMonth);
+  const [reportYear, setReportYear] = useState<number>(currentYear);
+  const [reportEmployeeId, setReportEmployeeId] = useState<number | string>(user?.employee_id || 1);
+  const [employeesList, setEmployeesList] = useState<any[]>([]);
+
+  useEffect(() => {
+    if (isAdminOrHR) {
+      apiFetch<any>('/employees?page_size=100').then((res) => {
+        if (res?.items) {
+          setEmployeesList(res.items);
+          if (!user?.employee_id && res.items.length > 0) {
+            setReportEmployeeId(res.items[0].id);
+          }
+        }
+      }).catch(() => {});
+    }
+  }, [isAdminOrHR]);
+
+  const handleAdminManualCheckout = async (employeeId: number, employeeName: string) => {
+    if (!window.confirm(`Are you sure you want to manually clock out ${employeeName}?`)) return;
+    setClockingOutStaffId(employeeId);
+    try {
+      await api.adminManualCheckout(employeeId);
+      alert(`Manual check-out recorded successfully for ${employeeName}.`);
+      queryClient.invalidateQueries({ queryKey: ['attendanceBoard'] });
+    } catch (err: any) {
+      alert(err.response?.data?.detail || err.message || 'Manual checkout failed');
+    } finally {
+      setClockingOutStaffId(null);
+    }
+  };
 
   // Correction Modal State
   const [showCorrectionModal, setShowCorrectionModal] = useState(false);
@@ -75,6 +116,13 @@ export default function AttendanceBoardPage() {
     queryKey: ['attendanceCorrections'],
     queryFn: () => api.getAttendanceCorrections(),
     enabled: isAdminOrHR || isEmployee,
+  });
+
+  // 4. Fetch Monthly Attendance Report (HR/Admin & Employee)
+  const { data: attendanceReport, isLoading: loadingReport } = useQuery({
+    queryKey: ['attendanceReport', reportEmployeeId, reportMonth, reportYear],
+    queryFn: () => api.getAttendanceReport(reportEmployeeId, reportMonth, reportYear),
+    enabled: activeTab === 'report' && Boolean(reportEmployeeId),
   });
 
   // Mutations
@@ -235,11 +283,22 @@ export default function AttendanceBoardPage() {
           }`}
         >
           Attendance Corrections
-          {correctionsList?.filter((c: any) => c.status === 'PENDING').length > 0 && (
+          {Array.isArray(correctionsList) && correctionsList.filter((c: any) => c.status === 'PENDING').length > 0 && (
             <span className="ml-2 px-1.5 py-0.5 text-xs bg-red-500 text-white rounded-full">
               {correctionsList.filter((c: any) => c.status === 'PENDING').length}
             </span>
           )}
+        </button>
+        <button
+          onClick={() => setActiveTab('report')}
+          className={`pb-3 px-4 text-sm font-medium border-b-2 transition-colors flex items-center gap-1.5 ${
+            activeTab === 'report'
+              ? 'border-indigo-500 text-indigo-600 dark:text-indigo-400'
+              : 'border-transparent text-gray-500 hover:text-gray-700 dark:hover:text-gray-300'
+          }`}
+        >
+          <FileText className="w-4 h-4" />
+          <span>Monthly Attendance Report</span>
         </button>
       </div>
 
@@ -330,10 +389,11 @@ export default function AttendanceBoardPage() {
                       <th className="px-6 py-4">Hours</th>
                       <th className="px-6 py-4">Verification</th>
                       <th className="px-6 py-4">Status</th>
+                      <th className="px-6 py-4 text-right">HR Action</th>
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {dailyBoard.records.map((rec: any) => (
+                    {(dailyBoard?.records || []).map((rec: any) => (
                       <tr key={rec.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                           <div>
@@ -369,6 +429,21 @@ export default function AttendanceBoardPage() {
                           </div>
                         </td>
                         <td className="px-6 py-4">{getStatusBadge(rec.status)}</td>
+                        <td className="px-6 py-4 text-right">
+                          {rec.check_in_time && !rec.check_out_time ? (
+                            <Button
+                              variant="danger"
+                              size="sm"
+                              disabled={clockingOutStaffId === rec.employee_id}
+                              onClick={() => handleAdminManualCheckout(rec.employee_id, rec.employee_name)}
+                              icon={Clock}
+                            >
+                              {clockingOutStaffId === rec.employee_id ? 'Clocking Out...' : 'Manual Check-Out'}
+                            </Button>
+                          ) : (
+                            <span className="text-xs text-gray-400 font-medium">Completed</span>
+                          )}
+                        </td>
                       </tr>
                     ))}
                   </tbody>
@@ -477,7 +552,7 @@ export default function AttendanceBoardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {myHistory.map((rec: any) => (
+                    {(Array.isArray(myHistory) ? myHistory : []).map((rec: any) => (
                       <tr key={rec.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">{rec.date}</td>
                         <td className="px-6 py-4 font-mono text-xs">
@@ -553,7 +628,7 @@ export default function AttendanceBoardPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {correctionsList.map((corr: any) => (
+                    {(Array.isArray(correctionsList) ? correctionsList : []).map((corr: any) => (
                       <tr key={corr.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         {!isEmployee && (
                           <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
@@ -614,6 +689,214 @@ export default function AttendanceBoardPage() {
                         )}
                       </tr>
                     ))}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </GlassCard>
+        </div>
+      )}
+
+      {/* TAB 4: Date-Wise Monthly Attendance Report (Weekend Off rule) */}
+      {activeTab === 'report' && (
+        <div className="space-y-6">
+          {/* Controls Bar */}
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 bg-white/60 dark:bg-gray-800/60 p-4 rounded-xl border border-gray-200/50 dark:border-gray-700/50">
+            <div className="flex flex-wrap items-center gap-3">
+              {isAdminOrHR && employeesList.length > 0 && (
+                <div className="flex items-center gap-2">
+                  <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Staff Member:</label>
+                  <select
+                    value={reportEmployeeId}
+                    onChange={(e) => setReportEmployeeId(Number(e.target.value))}
+                    className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 font-medium"
+                  >
+                    {employeesList.map((emp) => (
+                      <option key={emp.id} value={emp.id}>
+                        {emp.full_name} ({emp.employee_code}) - {emp.department_name || 'Staff'}
+                      </option>
+                    ))}
+                  </select>
+                </div>
+              )}
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Month:</label>
+                <select
+                  value={reportMonth}
+                  onChange={(e) => setReportMonth(Number(e.target.value))}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 font-medium"
+                >
+                  {[
+                    'January', 'February', 'March', 'April', 'May', 'June',
+                    'July', 'August', 'September', 'October', 'November', 'December'
+                  ].map((mName, i) => (
+                    <option key={i + 1} value={i + 1}>{mName}</option>
+                  ))}
+                </select>
+              </div>
+
+              <div className="flex items-center gap-2">
+                <label className="text-xs font-semibold text-gray-700 dark:text-gray-300">Year:</label>
+                <select
+                  value={reportYear}
+                  onChange={(e) => setReportYear(Number(e.target.value))}
+                  className="px-3 py-1.5 rounded-lg border border-gray-300 dark:border-gray-600 bg-white dark:bg-gray-900 text-gray-900 dark:text-white text-xs focus:ring-2 focus:ring-indigo-500 font-medium"
+                >
+                  {[2024, 2025, 2026, 2027].map((yr) => (
+                    <option key={yr} value={yr}>{yr}</option>
+                  ))}
+                </select>
+              </div>
+            </div>
+
+            <div className="flex items-center gap-2">
+              <Button size="sm" variant="outline" onClick={() => window.print()} icon={FileText}>
+                Print / Save PDF
+              </Button>
+            </div>
+          </div>
+
+          {/* Report Summary Cards */}
+          {attendanceReport && (
+            <div className="space-y-4">
+              <div className="p-4 rounded-xl bg-gradient-to-r from-indigo-500/10 via-purple-500/10 to-sky-500/10 border border-indigo-500/20 flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+                <div>
+                  <h3 className="text-base font-extrabold text-gray-900 dark:text-white">
+                    {attendanceReport.employee_name} ({attendanceReport.employee_code})
+                  </h3>
+                  <p className="text-xs text-gray-500 dark:text-gray-400">
+                    Department: <strong className="text-gray-700 dark:text-gray-200">{attendanceReport.department_name}</strong> | Period: {attendanceReport.month}/{attendanceReport.year}
+                  </p>
+                </div>
+                <div className="flex items-center gap-2">
+                  <span className="text-xs px-2.5 py-1 rounded-full bg-purple-500/15 text-purple-400 font-bold border border-purple-500/20">
+                    Saturday & Sunday: Full Weekend (Off)
+                  </span>
+                </div>
+              </div>
+
+              <div className="grid grid-cols-2 md:grid-cols-6 gap-3">
+                <GlassCard className="p-3 text-center">
+                  <span className="text-[11px] font-medium text-gray-500 dark:text-gray-400">Days in Month</span>
+                  <p className="text-xl font-bold text-gray-900 dark:text-white mt-0.5">{attendanceReport.total_days}</p>
+                </GlassCard>
+                <GlassCard className="p-3 text-center">
+                  <span className="text-[11px] font-medium text-sky-500">Working Days</span>
+                  <p className="text-xl font-bold text-sky-600 dark:text-sky-400 mt-0.5">{attendanceReport.working_days_count}</p>
+                </GlassCard>
+                <GlassCard className="p-3 text-center">
+                  <span className="text-[11px] font-medium text-purple-500">Weekend Days (Off)</span>
+                  <p className="text-xl font-bold text-purple-600 dark:text-purple-400 mt-0.5">{attendanceReport.weekend_days_count}</p>
+                </GlassCard>
+                <GlassCard className="p-3 text-center">
+                  <span className="text-[11px] font-medium text-emerald-500">Present (On Time)</span>
+                  <p className="text-xl font-bold text-emerald-600 dark:text-emerald-400 mt-0.5">{attendanceReport.present_days}</p>
+                </GlassCard>
+                <GlassCard className="p-3 text-center">
+                  <span className="text-[11px] font-medium text-amber-500">Late Arrivals</span>
+                  <p className="text-xl font-bold text-amber-600 dark:text-amber-400 mt-0.5">{attendanceReport.late_days}</p>
+                </GlassCard>
+                <GlassCard className="p-3 text-center">
+                  <span className="text-[11px] font-medium text-indigo-500">Total Hours Worked</span>
+                  <p className="text-xl font-bold text-indigo-600 dark:text-indigo-400 mt-0.5">{attendanceReport.total_working_hours.toFixed(1)}h</p>
+                </GlassCard>
+              </div>
+            </div>
+          )}
+
+          {/* Date-wise Table */}
+          <GlassCard className="overflow-hidden p-0">
+            {loadingReport ? (
+              <div className="p-6 space-y-4">
+                <Skeleton className="h-8 w-full" />
+                <Skeleton className="h-12 w-full" />
+                <Skeleton className="h-12 w-full" />
+              </div>
+            ) : !attendanceReport?.records?.length ? (
+              <EmptyState
+                icon={Calendar}
+                title="No report records available"
+                description="Select an employee and period to fetch official attendance audit."
+              />
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="w-full text-left text-sm text-gray-500 dark:text-gray-400">
+                  <thead className="bg-gray-50/50 dark:bg-gray-800/50 text-xs font-semibold text-gray-700 dark:text-gray-300 uppercase tracking-wider border-b border-gray-200/50 dark:border-gray-700/50">
+                    <tr>
+                      <th className="px-5 py-3.5">Date</th>
+                      <th className="px-5 py-3.5">Day of Week</th>
+                      <th className="px-5 py-3.5">Check-In</th>
+                      <th className="px-5 py-3.5">Check-Out</th>
+                      <th className="px-5 py-3.5">Working Hours</th>
+                      <th className="px-5 py-3.5">Method</th>
+                      <th className="px-5 py-3.5">Audit Status</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
+                    {attendanceReport.records.map((item: any, idx: number) => {
+                      const isWk = item.is_weekend;
+                      return (
+                        <tr
+                          key={idx}
+                          className={`transition-colors ${
+                            isWk
+                              ? 'bg-purple-500/5 dark:bg-purple-900/10'
+                              : 'hover:bg-gray-50/40 dark:hover:bg-gray-800/40'
+                          }`}
+                        >
+                          <td className="px-5 py-3 font-mono text-xs font-semibold text-gray-900 dark:text-white">
+                            {item.date}
+                          </td>
+                          <td className="px-5 py-3 text-xs">
+                            <span className={isWk ? 'font-bold text-purple-600 dark:text-purple-400' : 'text-gray-700 dark:text-gray-300'}>
+                              {item.day_name}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3 font-mono text-xs">
+                            {item.check_in_time || '--:--'}
+                          </td>
+                          <td className="px-5 py-3 font-mono text-xs">
+                            {item.check_out_time || '--:--'}
+                          </td>
+                          <td className="px-5 py-3 font-semibold text-xs text-gray-800 dark:text-gray-200">
+                            {item.working_hours > 0 ? `${item.working_hours.toFixed(1)} hrs` : '--'}
+                          </td>
+                          <td className="px-5 py-3 text-xs">
+                            <span className="px-2 py-0.5 rounded bg-gray-100 dark:bg-gray-800 text-[11px] text-gray-600 dark:text-gray-400">
+                              {item.source || (isWk ? 'Calendar' : 'N/A')}
+                            </span>
+                          </td>
+                          <td className="px-5 py-3">
+                            {isWk ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-purple-500/15 text-purple-600 dark:text-purple-400 border border-purple-500/25">
+                                🌴 Weekend (Off)
+                              </span>
+                            ) : item.status === 'present' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-emerald-500/15 text-emerald-600 dark:text-emerald-400 border border-emerald-500/25">
+                                <CheckCircle2 className="w-3.5 h-3.5" /> Present (On Time)
+                              </span>
+                            ) : item.status === 'late' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-amber-500/15 text-amber-600 dark:text-amber-400 border border-amber-500/25">
+                                <AlertTriangle className="w-3.5 h-3.5" /> Late Arrival
+                              </span>
+                            ) : item.status === 'half_day' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-blue-500/15 text-blue-600 dark:text-blue-400 border border-blue-500/25">
+                                Half Day (&lt;5h)
+                              </span>
+                            ) : item.status === 'on_leave' ? (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-sky-500/15 text-sky-600 dark:text-sky-400 border border-sky-500/25">
+                                Approved Leave
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 px-2.5 py-0.5 rounded-full text-xs font-bold bg-rose-500/15 text-rose-600 dark:text-rose-400 border border-rose-500/25">
+                                <XCircle className="w-3.5 h-3.5" /> Absent
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      );
+                    })}
                   </tbody>
                 </table>
               </div>

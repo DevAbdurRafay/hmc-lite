@@ -24,10 +24,12 @@ class AuthService:
 
     @staticmethod
     def first_run_setup(db: Session, setup_data: FirstRunSetupRequest, client_ip: Optional[str] = None) -> TokenResponse:
-        if not AuthService.is_first_run(db):
+        from app.models import Employee
+        emp_count = db.query(Employee).count()
+        if not AuthService.is_first_run(db) and emp_count > 0:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": "SETUP_LOCKED", "message": "First-run setup has already been completed and is locked."}
+                detail={"code": "SETUP_LOCKED", "message": "First-run setup has already been completed. Please sign in with your administrator credentials."}
             )
 
         # 1. Initialize or update company settings
@@ -56,22 +58,32 @@ class AuthService:
             ]
             db.add_all(defaults)
 
-        # 3. Check uniqueness and Create Admin user
+        # 3. Create or update Admin user
         admin_email_clean = setup_data.admin_email.strip().lower()
-        if db.query(User).filter(User.email == admin_email_clean).first():
+        existing_with_email = db.query(User).filter(User.email == admin_email_clean).first()
+        admin_user = db.query(User).filter(User.role == "ADMIN").first()
+
+        if existing_with_email and admin_user and existing_with_email.id != admin_user.id:
             raise HTTPException(
                 status_code=status.HTTP_400_BAD_REQUEST,
-                detail={"code": "EMAIL_EXISTS", "message": "This email or username is already in use. Please choose a unique name."}
+                detail={"code": "EMAIL_EXISTS", "message": "This email is already in use by another account."}
             )
 
-        admin_user = User(
-            email=admin_email_clean,
-            hashed_password=get_password_hash(setup_data.admin_password),
-            role="ADMIN",
-            is_active=True,
-            must_change_password=False,
-        )
-        db.add(admin_user)
+        if not admin_user:
+            admin_user = User(
+                email=admin_email_clean,
+                hashed_password=get_password_hash(setup_data.admin_password),
+                role="ADMIN",
+                is_active=True,
+                must_change_password=False,
+            )
+            db.add(admin_user)
+        else:
+            admin_user.email = admin_email_clean
+            admin_user.hashed_password = get_password_hash(setup_data.admin_password)
+            admin_user.is_active = True
+            admin_user.must_change_password = False
+
         db.commit()
         db.refresh(admin_user)
 
@@ -102,16 +114,31 @@ class AuthService:
 
     @staticmethod
     def login(db: Session, login_data: LoginRequest, client_ip: Optional[str] = None) -> TokenResponse:
-        user = db.query(User).filter(User.email == login_data.email.strip().lower()).first()
-        if not user or not verify_password(login_data.password, user.hashed_password):
+        clean_email = login_data.email.strip().lower()
+        user = db.query(User).filter(User.email == clean_email).first()
+
+        # 1. If account is not registered at all
+        if not user:
+            raise HTTPException(
+                status_code=status.HTTP_404_NOT_FOUND,
+                detail={"code": "USER_NOT_FOUND", "message": "No account found with this email address. Please check your email or contact your administrator."}
+            )
+
+        # 2. If account exists but password credentials are incorrect
+        if not verify_password(login_data.password, user.hashed_password):
             raise HTTPException(
                 status_code=status.HTTP_401_UNAUTHORIZED,
-                detail={"code": "INVALID_CREDENTIALS", "message": "Invalid email or password"}
+                detail={"code": "INVALID_CREDENTIALS", "message": "Invalid email or password. Please verify your credentials."}
             )
-        if not user.is_active:
+
+        # 3. If account or employee profile has been deactivated
+        if not user.is_active or (user.employee and user.employee.status in ("TERMINATED", "INACTIVE", "DEACTIVATED")):
             raise HTTPException(
                 status_code=status.HTTP_403_FORBIDDEN,
-                detail={"code": "ACCOUNT_DEACTIVATED", "message": "This account has been deactivated. Contact Admin."}
+                detail={
+                    "code": "ACCOUNT_DEACTIVATED",
+                    "message": "Your employee account has been deactivated. You cannot access this portal. Please contact Human Resources."
+                }
             )
 
         access_token = create_access_token({

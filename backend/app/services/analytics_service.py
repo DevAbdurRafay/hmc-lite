@@ -13,7 +13,7 @@ from app.schemas.analytics import (
     MetricKPI, ChartDataPoint, LateComerItem, AttritionRiskItem, AbsenceAnomalyItem,
     ForecastItem
 )
-from app.utils.dates import now_company, get_working_days_between
+from app.utils.dates import now_company, get_working_days_between, to_company_tz
 
 
 class AnalyticsService:
@@ -596,6 +596,12 @@ class AnalyticsService:
         # Absence anomalies
         anomalies = AnalyticsService.get_absence_anomalies(db, department_id)
 
+        # Gender Distribution
+        gender_q = db.query(Employee.gender, func.count(Employee.id)).filter(
+            Employee.status.in_(["ACTIVE", "PROBATION"])
+        ).group_by(Employee.gender).all()
+        genders = [ChartDataPoint(label=(g.capitalize() if g and g.strip() else "Other"), value=float(c)) for g, c in gender_q]
+
         return HRDashboardResponse(
             kpis=kpis,
             attendance_trend=trend_points,
@@ -603,7 +609,8 @@ class AnalyticsService:
             leave_by_type=leave_by_type,
             top_late_comers=top_late_comers,
             absence_anomalies=anomalies[:5],
-            pending_approvals={"leaves": pending_leaves, "corrections": pending_corrections}
+            pending_approvals={"leaves": pending_leaves, "corrections": pending_corrections},
+            gender_distribution=genders
         )
 
     @staticmethod
@@ -657,10 +664,19 @@ class AnalyticsService:
             "created_at": a.created_at.strftime("%d %b %Y")
         } for a in announcements]
 
+        def _format_time_local(dt: Optional[datetime]) -> Optional[str]:
+            if not dt:
+                return None
+            try:
+                local_dt = to_company_tz(dt)
+                return local_dt.strftime("%I:%M:%S %p")
+            except Exception:
+                return dt.strftime("%I:%M:%S %p") if hasattr(dt, 'strftime') else str(dt)
+
         return EmployeeDashboardResponse(
             today_status=today_rec.status if today_rec else "NOT_CHECKED_IN",
-            check_in_time=today_rec.check_in.strftime("%H:%M:%S") if (today_rec and today_rec.check_in) else None,
-            check_out_time=today_rec.check_out.strftime("%H:%M:%S") if (today_rec and today_rec.check_out) else None,
+            check_in_time=_format_time_local(today_rec.check_in) if (today_rec and today_rec.check_in) else None,
+            check_out_time=_format_time_local(today_rec.check_out) if (today_rec and today_rec.check_out) else None,
             hours_this_week=hours_this_week,
             hours_target=40.0,
             late_count_this_month=late_count,

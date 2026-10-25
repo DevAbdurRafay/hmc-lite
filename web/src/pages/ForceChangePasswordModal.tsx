@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { KeyRound, ShieldAlert, Check, X, Eye, EyeOff, Lock } from 'lucide-react';
+import { KeyRound, Check, X, Eye, EyeOff, Lock } from 'lucide-react';
 import { Modal } from '../components/common/Modal';
 import { Button } from '../components/common/Button';
 import { useAuth } from '../context/AuthContext';
@@ -34,7 +34,7 @@ export const ForceChangePasswordModal: React.FC = () => {
     e.preventDefault();
 
     if (!isPasswordValid) {
-      setError('Please fulfill all password security requirements in the checklist below.');
+      setError('Please fulfill all password security requirements in the checklist.');
       return;
     }
 
@@ -73,7 +73,7 @@ export const ForceChangePasswordModal: React.FC = () => {
     >
       <form onSubmit={handleSubmit} className="space-y-4">
         {error && (
-          <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs">
+          <div className="p-3 rounded-xl bg-rose-500/15 border border-rose-500/30 text-rose-300 text-xs font-semibold animate-in shake">
             {error}
           </div>
         )}
@@ -133,44 +133,37 @@ export const ForceChangePasswordModal: React.FC = () => {
             </button>
           </div>
 
-          {/* Password Requirements Checklist with dynamic green/red */}
-          <div className="mt-2.5 p-3 rounded-xl bg-black/30 border border-white/10 space-y-2">
-            <div className="flex items-center justify-between">
-              <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                Password Requirements Checklist
-              </span>
-              <span
-                className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                  isPasswordValid
-                    ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                    : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                }`}
-              >
-                {isPasswordValid ? 'All Met' : 'Incomplete'}
-              </span>
+          {/* Password Requirements Checklist - ONLY SHOWN WHEN USER HAS ENTERED TEXT */}
+          {newPassword.length > 0 && (
+            <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/10 space-y-2 animate-in fade-in duration-200">
+              <div className="flex items-center justify-between">
+                <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                  Password Requirements Checklist
+                </span>
+              </div>
+              <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
+                {passwordChecks.map((chk) => (
+                  <div
+                    key={chk.id}
+                    className={`flex items-center gap-2 text-xs transition-colors py-0.5 ${
+                      chk.valid ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'
+                    }`}
+                  >
+                    {chk.valid ? (
+                      <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
+                        <Check className="w-2.5 h-2.5 stroke-[3]" />
+                      </span>
+                    ) : (
+                      <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
+                        <X className="w-2.5 h-2.5 stroke-[3]" />
+                      </span>
+                    )}
+                    <span>{chk.label}</span>
+                  </div>
+                ))}
+              </div>
             </div>
-            <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1">
-              {passwordChecks.map((chk) => (
-                <div
-                  key={chk.id}
-                  className={`flex items-center gap-2 text-xs transition-colors py-0.5 ${
-                    chk.valid ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'
-                  }`}
-                >
-                  {chk.valid ? (
-                    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 border border-emerald-500/30 shrink-0">
-                      <Check className="w-2.5 h-2.5 stroke-[3]" />
-                    </span>
-                  ) : (
-                    <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 border border-rose-500/30 shrink-0">
-                      <X className="w-2.5 h-2.5 stroke-[3]" />
-                    </span>
-                  )}
-                  <span>{chk.label}</span>
-                </div>
-              ))}
-            </div>
-          </div>
+          )}
         </div>
 
         {/* Confirm Password Field with Eye Icon */}
@@ -206,11 +199,11 @@ export const ForceChangePasswordModal: React.FC = () => {
             }`}>
               {newPassword === confirmPassword ? (
                 <span className="flex items-center justify-center w-4 h-4 rounded-full bg-emerald-500/20 text-emerald-400 shrink-0">
-                  <Check className="w-2.5 h-2.5" />
+                  <Check className="w-2.5 h-2.5 stroke-[3]" />
                 </span>
               ) : (
                 <span className="flex items-center justify-center w-4 h-4 rounded-full bg-rose-500/20 text-rose-400 shrink-0">
-                  <X className="w-2.5 h-2.5" />
+                  <X className="w-2.5 h-2.5 stroke-[3]" />
                 </span>
               )}
               <span>{newPassword === confirmPassword ? 'Passwords match' : 'Passwords do not match'}</span>

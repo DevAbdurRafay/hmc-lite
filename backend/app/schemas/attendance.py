@@ -10,10 +10,45 @@ class CheckInRequest(BaseModel):
     source: str = "WEB"  # WEB, CAMERA, MOBILE
     face_detected: Optional[bool] = None
     face_descriptor: Optional[List[float]] = None
+    image_data: Optional[str] = None
 
 
 class CheckOutRequest(BaseModel):
     source: str = "WEB"
+    latitude: Optional[float] = None
+    longitude: Optional[float] = None
+    accuracy: Optional[float] = None
+
+
+class AttendanceReportItem(BaseModel):
+    date: date
+    day_name: str
+    is_weekend: bool
+    status: str
+    status_label: str
+    check_in_time: Optional[str] = None
+    check_out_time: Optional[str] = None
+    working_hours: float = 0.0
+    source: Optional[str] = None
+
+
+class AttendanceReportSummary(BaseModel):
+    employee_id: int
+    employee_name: str
+    employee_code: str
+    department_name: str
+    month: int
+    year: int
+    total_days: int
+    working_days_count: int
+    weekend_days_count: int
+    present_days: int
+    late_days: int
+    half_days: int
+    absent_days: int
+    on_leave_days: int
+    total_working_hours: float
+    records: List[AttendanceReportItem]
 
 
 class AttendanceResponse(BaseModel):
@@ -26,6 +61,7 @@ class AttendanceResponse(BaseModel):
     check_in: Optional[datetime] = None
     check_out: Optional[datetime] = None
     working_hours: float
+    work_hours: Optional[float] = None
     status: str
     source: str
     check_in_latitude: Optional[float] = None

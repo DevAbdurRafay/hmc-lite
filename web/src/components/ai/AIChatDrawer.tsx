@@ -15,6 +15,86 @@ interface AIChatDrawerProps {
   onClose: () => void;
 }
 
+const renderFormattedMessage = (content: string) => {
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+
+  const parseInlineBold = (text: string): React.ReactNode[] => {
+    // Matches **bold**
+    const parts = text.split(/(\*\*[^*]+?\*\*)/g);
+    return parts.map((part, i) => {
+      if (part.startsWith('**') && part.endsWith('**') && part.length >= 4) {
+        const clean = part.slice(2, -2).trim();
+        return (
+          <strong key={i} className="font-bold text-white light:text-slate-900 tracking-tight">
+            {clean}
+          </strong>
+        );
+      }
+      // Strip any accidental dangling asterisks
+      return part.replace(/\*\*/g, '');
+    });
+  };
+
+  let inList = false;
+  let listItems: React.ReactNode[] = [];
+
+  const flushList = () => {
+    if (inList && listItems.length > 0) {
+      elements.push(
+        <ul key={`list-${elements.length}`} className="my-1.5 space-y-1 pl-0.5">
+          {listItems}
+        </ul>
+      );
+      listItems = [];
+      inList = false;
+    }
+  };
+
+  lines.forEach((line, lineIdx) => {
+    const trimmed = line.trim();
+
+    if (!trimmed) {
+      flushList();
+      elements.push(<div key={`empty-${lineIdx}`} className="h-1.5" />);
+      return;
+    }
+
+    if (trimmed.startsWith('### ') || trimmed.startsWith('## ')) {
+      flushList();
+      const headerText = trimmed.replace(/^#+\s*/, '');
+      elements.push(
+        <h4 key={`header-${lineIdx}`} className="font-bold text-xs sm:text-sm text-sky-400 light:text-sky-700 mt-2 mb-1">
+          {parseInlineBold(headerText)}
+        </h4>
+      );
+      return;
+    }
+
+    const bulletMatch = trimmed.match(/^[-*•]\s+(.*)$/);
+    if (bulletMatch) {
+      inList = true;
+      listItems.push(
+        <li key={`li-${lineIdx}`} className="flex items-start gap-2 text-xs sm:text-sm">
+          <span className="w-1.5 h-1.5 rounded-full bg-sky-400 light:bg-sky-600 mt-1.5 shrink-0" />
+          <span className="leading-relaxed text-slate-200 light:text-slate-800">{parseInlineBold(bulletMatch[1])}</span>
+        </li>
+      );
+      return;
+    }
+
+    flushList();
+    elements.push(
+      <p key={`p-${lineIdx}`} className="my-0.5 leading-relaxed text-slate-200 light:text-slate-800">
+        {parseInlineBold(trimmed)}
+      </p>
+    );
+  });
+
+  flushList();
+  return <div className="space-y-0.5">{elements}</div>;
+};
+
 export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose }) => {
   const { user } = useAuth();
   const [messages, setMessages] = useState<Message[]>([
@@ -134,15 +214,19 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose }) =
                 </div>
               )}
               <div
-                className={`max-w-[85%] rounded-2xl p-3.5 text-xs sm:text-sm leading-relaxed shadow-sm ${
+                className={`max-w-[85%] rounded-2xl p-3.5 text-xs sm:text-sm leading-relaxed shadow-sm font-sans ${
                   m.role === 'user'
-                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white'
-                    : 'glass-card text-slate-200 light:text-slate-800'
+                    ? 'bg-gradient-to-r from-sky-500 to-blue-600 text-white font-medium'
+                    : 'glass-card light:bg-white light:border-slate-200 text-slate-200 light:text-slate-800'
                 }`}
               >
-                <div className="whitespace-pre-wrap">{m.content}</div>
+                {m.role === 'user' ? (
+                  <div className="whitespace-pre-wrap font-sans">{m.content}</div>
+                ) : (
+                  renderFormattedMessage(m.content)
+                )}
                 {m.ai_generated && (
-                  <div className="mt-2 pt-1 border-t border-white/10 text-[10px] text-purple-300/80 flex items-center gap-1">
+                  <div className="mt-2.5 pt-1.5 border-t border-white/10 light:border-slate-200 text-[10px] text-purple-300/90 light:text-purple-700 flex items-center gap-1 font-medium">
                     <Sparkles className="w-2.5 h-2.5" /> AI-generated • Grounded in system rules
                   </div>
                 )}
@@ -155,7 +239,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose }) =
               <div className="w-8 h-8 rounded-full bg-purple-500/20 text-purple-300 flex items-center justify-center border border-purple-500/30">
                 <Bot className="w-4 h-4" />
               </div>
-              <div className="glass-card rounded-2xl p-3 text-xs text-slate-400 flex items-center gap-2">
+              <div className="glass-card light:bg-white light:border-slate-200 rounded-2xl p-3 text-xs text-slate-400 light:text-slate-600 flex items-center gap-2">
                 <Loader2 className="w-3.5 h-3.5 animate-spin text-purple-400" />
                 <span>Assistant is querying database...</span>
               </div>
@@ -171,7 +255,7 @@ export const AIChatDrawer: React.FC<AIChatDrawerProps> = ({ isOpen, onClose }) =
               <button
                 key={i}
                 onClick={() => handleSend(prompt)}
-                className="px-2.5 py-1 rounded-full bg-white/5 hover:bg-white/10 text-slate-300 text-[11px] border border-white/10 transition-colors text-left"
+                className="px-2.5 py-1.5 rounded-full bg-white/5 hover:bg-white/10 light:bg-slate-100 light:hover:bg-slate-200 text-slate-300 light:text-slate-700 text-[11px] font-medium border border-white/10 light:border-slate-200 transition-colors text-left"
               >
                 {prompt}
               </button>

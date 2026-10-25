@@ -20,9 +20,11 @@ export async function apiFetch<T>(
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
   const url = `${API_BASE_URL}/api/v1${cleanEndpoint}`;
 
-  // 15 second request timeout to prevent hanging requests
+  // Smart request timeout: 5 minutes for bulk imports & uploads, 45 seconds for regular API calls
+  const isUpload = options.body instanceof FormData || cleanEndpoint.includes('csv') || cleanEndpoint.includes('import') || cleanEndpoint.includes('upload');
+  const timeoutMs = isUpload ? 300000 : 45000;
   const controller = new AbortController();
-  const timeoutId = setTimeout(() => controller.abort(), 15000);
+  const timeoutId = setTimeout(() => controller.abort(), timeoutMs);
 
   let response: Response;
   try {
@@ -34,7 +36,7 @@ export async function apiFetch<T>(
   } catch (netErr: any) {
     clearTimeout(timeoutId);
     if (netErr.name === 'AbortError') {
-      const timeoutError: any = new Error('Server request took longer than expected. Please check your local server.');
+      const timeoutError: any = new Error('Server request took longer than expected for large data processing. Please try again.');
       timeoutError.code = 'REQUEST_TIMEOUT';
       throw timeoutError;
     }
@@ -73,6 +75,8 @@ export async function apiFetch<T>(
       }
       if (json.code) {
         errorCode = json.code;
+      } else if (json.detail && typeof json.detail === 'object' && json.detail.code) {
+        errorCode = json.detail.code;
       }
       details = json.details || json.detail;
     } catch {
@@ -134,6 +138,17 @@ export const api = {
       method: 'POST',
       body: JSON.stringify(data),
     }),
+  adminManualCheckout: (employeeId: number | string) =>
+    apiFetch<any>(`/attendance/admin-checkout/${employeeId}`, {
+      method: 'POST',
+    }),
+  getAttendanceReport: (employeeId?: number | string, month?: number, year?: number) => {
+    const params = new URLSearchParams();
+    if (employeeId) params.append('employee_id', String(employeeId));
+    if (month) params.append('month', String(month));
+    if (year) params.append('year', String(year));
+    return apiFetch<any>(`/attendance/report?${params.toString()}`);
+  },
 
   // Leaves
   getLeaveTypes: () => apiFetch<any[]>('/leave/types'),

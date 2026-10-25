@@ -1,7 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import {
   Users, KeyRound, Plus, Shield, Search, CheckCircle2, XCircle,
-  Copy, Check, AlertTriangle, Eye, EyeOff, Lock, Mail, User as UserIcon
+  Copy, Check, X, AlertTriangle, Eye, EyeOff, Lock, Mail, User as UserIcon
 } from 'lucide-react';
 import { api } from '../services/api';
 import { useAuth } from '../context/AuthContext';
@@ -52,8 +52,7 @@ export const UserManagementPage: React.FC = () => {
   const isPasswordValid = passHasSpecial && passHasNumber && passHasUpper && passHasLower && passHasLength;
 
   const emailClean = hrEmail.trim().toLowerCase();
-  const validSuffixes = ['@hcmlite.app', 'hcmlite.app', '@hmclite', 'hmclite', 'hcmlite.com', 'hcmlite.local', 'hmclite.com'];
-  const isEmailValid = validSuffixes.some((s) => emailClean.endsWith(s)) && emailClean.length > 5;
+  const isEmailValid = emailClean.includes('@') && emailClean.endsWith('.app') && emailClean.split('@')[0].trim().length > 0;
 
   const fetchUsers = async () => {
     try {
@@ -75,7 +74,7 @@ export const UserManagementPage: React.FC = () => {
   const handleCreateHR = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!isEmailValid) {
-      setHrError('Email address must end with hmclite (e.g. hr_specialist@hmclite)');
+      setHrError('Email address must contain "@" and end with .app (e.g. hr_specialist@acmetech.app)');
       return;
     }
     if (!isPasswordValid) {
@@ -263,7 +262,7 @@ export const UserManagementPage: React.FC = () => {
                 </tr>
               </thead>
               <tbody className="divide-y divide-white/5">
-                {filteredUsers.map((u) => {
+                {(filteredUsers || []).map((u) => {
                   const isSelf = currentAdmin?.id === u.id;
                   const isLoadingAction = actionLoadingId === u.id;
 
@@ -397,7 +396,7 @@ export const UserManagementPage: React.FC = () => {
                   Email Address
                 </label>
                 <span className={`text-[11px] font-mono ${isEmailValid ? 'text-emerald-400' : 'text-amber-400'}`}>
-                  Must end with hmclite
+                  Must end with .app
                 </span>
               </div>
               <div className="relative">
@@ -405,7 +404,7 @@ export const UserManagementPage: React.FC = () => {
                 <input
                   type="text"
                   required
-                  placeholder="e.g. ayesha.hr@hmclite"
+                  placeholder="e.g. ayesha.hr@acmetech.app"
                   value={hrEmail}
                   onChange={(e) => setHrEmail(e.target.value)}
                   className={`w-full pl-9 pr-3 py-2 rounded-xl bg-white/5 border text-sm text-white placeholder-slate-500 focus:outline-none font-['Montserrat'] ${
@@ -438,55 +437,48 @@ export const UserManagementPage: React.FC = () => {
                 </button>
               </div>
 
-              {/* Password Checklist with dynamic green/red ticks and crosses */}
-              <div className="mt-2.5 p-3 rounded-xl bg-black/30 border border-white/10 space-y-2">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
-                    Password Requirements Checklist
-                  </span>
-                  <span
-                    className={`text-[10px] font-bold uppercase tracking-wider px-2 py-0.5 rounded-full ${
-                      isPasswordValid
-                        ? 'bg-emerald-500/20 text-emerald-300 border border-emerald-500/40'
-                        : 'bg-rose-500/20 text-rose-300 border border-rose-500/40'
-                    }`}
-                  >
-                    {isPasswordValid ? 'All Met' : 'Incomplete'}
-                  </span>
-                </div>
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-xs">
-                  <div className={`flex items-center gap-2 py-0.5 ${passHasSpecial ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
-                    <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasSpecial ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
-                      {passHasSpecial ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
+              {/* Password Checklist with dynamic green/red ticks - ONLY SHOWN WHEN USER HAS ENTERED TEXT */}
+              {hrPassword.length > 0 && (
+                <div className="mt-2.5 p-3 rounded-xl bg-black/40 border border-white/10 space-y-2 animate-in fade-in duration-200">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[10px] font-bold text-slate-400 uppercase tracking-wider">
+                      Password Requirements Checklist
                     </span>
-                    <span>Special character (!@#$%^&*)</span>
                   </div>
-                  <div className={`flex items-center gap-2 py-0.5 ${passHasNumber ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
-                    <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasNumber ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
-                      {passHasNumber ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
-                    </span>
-                    <span>Number (0-9)</span>
-                  </div>
-                  <div className={`flex items-center gap-2 py-0.5 ${passHasUpper ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
-                    <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasUpper ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
-                      {passHasUpper ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
-                    </span>
-                    <span>Uppercase (A-Z)</span>
-                  </div>
-                  <div className={`flex items-center gap-2 py-0.5 ${passHasLower ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
-                    <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasLower ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
-                      {passHasLower ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
-                    </span>
-                    <span>Lowercase (a-z)</span>
-                  </div>
-                  <div className={`flex items-center gap-2 py-0.5 col-span-1 sm:col-span-2 ${passHasLength ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
-                    <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasLength ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
-                      {passHasLength ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
-                    </span>
-                    <span>Minimum 8 characters</span>
+                  <div className="grid grid-cols-1 sm:grid-cols-2 gap-1.5 pt-1 text-xs">
+                    <div className={`flex items-center gap-2 py-0.5 ${passHasSpecial ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
+                      <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasSpecial ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                        {passHasSpecial ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
+                      </span>
+                      <span>Special character (!@#$%^&*)</span>
+                    </div>
+                    <div className={`flex items-center gap-2 py-0.5 ${passHasNumber ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
+                      <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasNumber ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                        {passHasNumber ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
+                      </span>
+                      <span>Number (0-9)</span>
+                    </div>
+                    <div className={`flex items-center gap-2 py-0.5 ${passHasUpper ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
+                      <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasUpper ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                        {passHasUpper ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
+                      </span>
+                      <span>Uppercase (A-Z)</span>
+                    </div>
+                    <div className={`flex items-center gap-2 py-0.5 ${passHasLower ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
+                      <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasLower ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                        {passHasLower ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
+                      </span>
+                      <span>Lowercase (a-z)</span>
+                    </div>
+                    <div className={`flex items-center gap-2 py-0.5 col-span-1 sm:col-span-2 ${passHasLength ? 'text-emerald-400 font-medium' : 'text-rose-400 font-medium'}`}>
+                      <span className={`flex items-center justify-center w-4 h-4 rounded-full border shrink-0 ${passHasLength ? 'bg-emerald-500/20 text-emerald-400 border-emerald-500/30' : 'bg-rose-500/20 text-rose-400 border-rose-500/30'}`}>
+                        {passHasLength ? <Check className="w-2.5 h-2.5 stroke-[3]" /> : <X className="w-2.5 h-2.5 stroke-[3]" />}
+                      </span>
+                      <span>Minimum 8 characters</span>
+                    </div>
                   </div>
                 </div>
-              </div>
+              )}
             </div>
 
             <div className="pt-3 flex items-center justify-end gap-3 border-t border-white/10">

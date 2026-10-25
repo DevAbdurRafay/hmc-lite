@@ -73,6 +73,7 @@ class HRDashboardResponse(BaseModel):
     top_late_comers: List[LateComerItem]
     absence_anomalies: List[AbsenceAnomalyItem]
     pending_approvals: Dict[str, int]
+    gender_distribution: List[ChartDataPoint] = []
 
 
 class EmployeeDashboardResponse(BaseModel):

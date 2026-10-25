@@ -65,6 +65,11 @@ export const PlotlyWorkforceDashboard: React.FC<PlotlyDashboardProps> = ({
     const renderCharts = () => {
       if (!window.Plotly) return;
 
+      const isLight = document.documentElement.classList.contains('light');
+      const textColor = isLight ? '#0f172a' : '#f8fafc';
+      const mutedColor = isLight ? '#475569' : '#94a3b8';
+      const gridColor = isLight ? 'rgba(0,0,0,0.08)' : 'rgba(255,255,255,0.06)';
+
       const colors = ['#38bdf8', '#818cf8', '#a855f7', '#34d399', '#f43f5e', '#fbbf24', '#f97316'];
 
       // 1. Department Donut Chart
@@ -84,16 +89,13 @@ export const PlotlyWorkforceDashboard: React.FC<PlotlyDashboardProps> = ({
         ];
 
         const deptLayout = {
-          title: {
-            text: '<b>Department Headcount Distribution</b>',
-            font: { family: 'Plus Jakarta Sans, sans-serif', size: 14, color: '#f8fafc' },
-          },
+          font: { family: 'Montserrat, sans-serif', size: 12, color: textColor },
           paper_bgcolor: 'rgba(0,0,0,0)',
           plot_bgcolor: 'rgba(0,0,0,0)',
           showlegend: true,
-          legend: { font: { color: '#94a3b8', size: 11 }, orientation: 'h', y: -0.1 },
-          margin: { l: 20, r: 20, t: 40, b: 30 },
-          height: 280,
+          legend: { font: { family: 'Montserrat, sans-serif', color: mutedColor, size: 10 }, orientation: 'h', y: -0.15 },
+          margin: { l: 20, r: 20, t: 15, b: 25 },
+          height: 270,
         };
 
         window.Plotly.react(deptChartRef.current, deptData, deptLayout, {
@@ -119,22 +121,21 @@ export const PlotlyWorkforceDashboard: React.FC<PlotlyDashboardProps> = ({
         ];
 
         const salaryLayout = {
-          title: {
-            text: '<b>Avg Monthly Gross by Department (PKR)</b>',
-            font: { family: 'Plus Jakarta Sans, sans-serif', size: 14, color: '#f8fafc' },
-          },
+          font: { family: 'Montserrat, sans-serif', size: 12, color: textColor },
           paper_bgcolor: 'rgba(0,0,0,0)',
           plot_bgcolor: 'rgba(0,0,0,0)',
-          margin: { l: 50, r: 20, t: 40, b: 40 },
+          margin: { l: 55, r: 20, t: 15, b: 45 },
           xaxis: {
-            tickfont: { color: '#94a3b8', size: 11 },
-            gridcolor: 'rgba(255,255,255,0.05)',
+            tickfont: { family: 'Montserrat, sans-serif', color: mutedColor, size: 10 },
+            gridcolor: gridColor,
+            automargin: true,
           },
           yaxis: {
-            tickfont: { color: '#94a3b8', size: 11 },
-            gridcolor: 'rgba(255,255,255,0.08)',
+            tickfont: { family: 'Montserrat, sans-serif', color: mutedColor, size: 10 },
+            gridcolor: gridColor,
+            automargin: true,
           },
-          height: 280,
+          height: 270,
         };
 
         window.Plotly.react(salaryChartRef.current, salaryData, salaryLayout, {
@@ -162,15 +163,12 @@ export const PlotlyWorkforceDashboard: React.FC<PlotlyDashboardProps> = ({
         ];
 
         const genderLayout = {
-          title: {
-            text: '<b>Workforce Gender Distribution</b>',
-            font: { family: 'Plus Jakarta Sans, sans-serif', size: 14, color: '#f8fafc' },
-          },
+          font: { family: 'Montserrat, sans-serif', size: 12, color: textColor },
           paper_bgcolor: 'rgba(0,0,0,0)',
           plot_bgcolor: 'rgba(0,0,0,0)',
           showlegend: false,
-          margin: { l: 20, r: 20, t: 40, b: 20 },
-          height: 280,
+          margin: { l: 20, r: 20, t: 15, b: 20 },
+          height: 270,
         };
 
         window.Plotly.react(genderChartRef.current, genderData, genderLayout, {
@@ -278,14 +276,32 @@ export const PlotlyWorkforceDashboard: React.FC<PlotlyDashboardProps> = ({
       {/* Plotly Interactive Charts Grid */}
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
         <GlassCard className="p-4 lg:col-span-1">
+          <div className="mb-2">
+            <h4 className="text-xs sm:text-sm font-bold text-white light:text-slate-900 tracking-tight">
+              Department Headcount Distribution
+            </h4>
+            <p className="text-[11px] text-slate-400 light:text-slate-500">Live employee ratio by department</p>
+          </div>
           <div ref={deptChartRef} className="w-full" />
         </GlassCard>
 
         <GlassCard className="p-4 lg:col-span-1">
+          <div className="mb-2">
+            <h4 className="text-xs sm:text-sm font-bold text-white light:text-slate-900 tracking-tight">
+              Avg Monthly Gross by Dept (PKR)
+            </h4>
+            <p className="text-[11px] text-slate-400 light:text-slate-500">Mean compensation distribution</p>
+          </div>
           <div ref={salaryChartRef} className="w-full" />
         </GlassCard>
 
         <GlassCard className="p-4 lg:col-span-1">
+          <div className="mb-2">
+            <h4 className="text-xs sm:text-sm font-bold text-white light:text-slate-900 tracking-tight">
+              Workforce Gender Distribution
+            </h4>
+            <p className="text-[11px] text-slate-400 light:text-slate-500">Demographic diversity breakdown</p>
+          </div>
           <div ref={genderChartRef} className="w-full" />
         </GlassCard>
       </div>

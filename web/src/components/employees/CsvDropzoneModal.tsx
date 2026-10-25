@@ -32,6 +32,7 @@ export const CsvDropzoneModal: React.FC<CsvDropzoneModalProps> = ({
   const [dragActive, setDragActive] = useState(false);
   const [file, setFile] = useState<File | null>(null);
   const [previewRows, setPreviewRows] = useState<any[]>([]);
+  const [totalDetectedRows, setTotalDetectedRows] = useState<number>(0);
   const [dryRunResult, setDryRunResult] = useState<any | null>(null);
   const [loading, setLoading] = useState(false);
   const [error, setError] = useState<string | null>(null);
@@ -40,9 +41,28 @@ export const CsvDropzoneModal: React.FC<CsvDropzoneModalProps> = ({
   const resetState = () => {
     setFile(null);
     setPreviewRows([]);
+    setTotalDetectedRows(0);
     setDryRunResult(null);
     setError(null);
     setLoading(false);
+  };
+
+  const getRowVal = (row: any, ...aliases: string[]): string => {
+    if (!row) return '';
+    const keys = Object.keys(row);
+    for (const alias of aliases) {
+      const cleanAlias = alias.toLowerCase().replace(/[\s_\-]/g, '');
+      for (const key of keys) {
+        const cleanKey = key.toLowerCase().replace(/[\s_\-]/g, '');
+        if (cleanKey === cleanAlias || cleanKey.includes(cleanAlias)) {
+          const val = row[key];
+          if (val !== undefined && val !== null && String(val).trim().length > 0) {
+            return String(val).trim();
+          }
+        }
+      }
+    }
+    return '';
   };
 
   const handleDrag = (e: React.DragEvent) => {
@@ -57,21 +77,23 @@ export const CsvDropzoneModal: React.FC<CsvDropzoneModalProps> = ({
 
   const parseCsvTextLocally = (text: string) => {
     const lines = text.split(/\r?\n/).filter((l) => l.trim().length > 0);
-    if (lines.length < 2) return [];
+    if (lines.length < 2) return { preview: [], total: 0 };
+    const total = lines.length - 1;
     const headers = lines[0].split(',').map((h) => h.trim().replace(/^["']|["']$/g, ''));
-    const rows: any[] = [];
+    const preview: any[] = [];
+    const limit = Math.min(lines.length, 50);
 
-    for (let i = 1; i < lines.length; i++) {
+    for (let i = 1; i < limit; i++) {
       const parts = lines[i].split(',').map((p) => p.trim().replace(/^["']|["']$/g, ''));
-      if (parts.length >= headers.length) {
+      if (parts.length > 0) {
         const rowObj: any = {};
         headers.forEach((h, idx) => {
-          rowObj[h] = parts[idx];
+          rowObj[h] = parts[idx] !== undefined ? parts[idx] : '';
         });
-        rows.push(rowObj);
+        preview.push(rowObj);
       }
     }
-    return rows;
+    return { preview, total };
   };
 
   const processFile = (uploadedFile: File) => {
@@ -83,14 +105,15 @@ export const CsvDropzoneModal: React.FC<CsvDropzoneModalProps> = ({
     setFile(uploadedFile);
     setDryRunResult(null);
 
-    // Read client-side preview
+    // Read client-side preview without blocking UI thread on massive files
     const reader = new FileReader();
     reader.onload = (e) => {
       const text = e.target?.result as string;
-      const parsed = parseCsvTextLocally(text);
-      setPreviewRows(parsed);
+      const { preview, total } = parseCsvTextLocally(text);
+      setPreviewRows(preview);
+      setTotalDetectedRows(total);
       if (onPreviewParsed) {
-        onPreviewParsed(parsed);
+        onPreviewParsed(preview);
       }
     };
     reader.readAsText(uploadedFile);
@@ -257,7 +280,7 @@ EMP005,Zain,Abbas,zain.abbas@company.com,Male,Engineering,Backend Developer,1050
                 <div>
                   <h4 className="text-sm font-bold text-white">{file.name}</h4>
                   <p className="text-[11px] text-slate-400">
-                    {(file.size / 1024).toFixed(1)} KB • {previewRows.length} detected rows
+                    {(file.size / 1024).toFixed(1)} KB • {(totalDetectedRows || previewRows.length).toLocaleString()} detected records
                   </p>
                 </div>
               </div>
@@ -275,7 +298,7 @@ EMP005,Zain,Abbas,zain.abbas@company.com,Male,Engineering,Backend Developer,1050
             {previewRows.length > 0 && (
               <div className="rounded-lg border border-white/10 overflow-hidden">
                 <div className="bg-white/[0.03] px-3 py-1.5 text-[11px] font-semibold text-slate-300 flex justify-between">
-                  <span>Client-Side Preview ({previewRows.length} total records)</span>
+                  <span>Client-Side Preview ({(totalDetectedRows || previewRows.length).toLocaleString()} total records)</span>
                   <span className="text-sky-400">Showing first 3 rows</span>
                 </div>
                 <div className="overflow-x-auto text-[11px]">
@@ -290,15 +313,26 @@ EMP005,Zain,Abbas,zain.abbas@company.com,Male,Engineering,Backend Developer,1050
                       </tr>
                     </thead>
                     <tbody className="divide-y divide-white/5 text-slate-200">
-                      {previewRows.slice(0, 3).map((r, i) => (
-                        <tr key={i}>
-                          <td className="p-2 font-mono text-sky-300">{r.employee_code}</td>
-                          <td className="p-2 font-medium">{r.first_name} {r.last_name}</td>
-                          <td className="p-2 text-slate-400">{r.email}</td>
-                          <td className="p-2">{r.department}</td>
-                          <td className="p-2 font-mono">PKR {Number(r.basic_salary || 0).toLocaleString()}</td>
-                        </tr>
-                      ))}
+                      {previewRows.slice(0, 3).map((r, i) => {
+                        const code = getRowVal(r, 'employee_code', 'emp_code', 'employee_id', 'emp_id', 'empid', 'code', 'id') || `EMP-${String(i + 1).padStart(4, '0')}`;
+                        const rawName = getRowVal(r, 'name', 'full_name', 'employee_name', 'emp_name');
+                        const fname = getRowVal(r, 'first_name', 'fname') || rawName.split(' ')[0] || 'Employee';
+                        const lname = getRowVal(r, 'last_name', 'lname') || rawName.split(' ').slice(1).join(' ') || 'Member';
+                        const email = getRowVal(r, 'email', 'email_address', 'work_email', 'mail') || `${code.toLowerCase().replace(/[^a-z0-9]/g, '')}@hcmlite.app`;
+                        const dept = getRowVal(r, 'department', 'dept', 'department_code', 'dept_code', 'department_name') || 'General';
+                        const rawSal = getRowVal(r, 'basic_salary', 'salary', 'basic', 'gross_salary', 'base_salary', 'pay', 'ctc');
+                        const salary = rawSal ? Number(rawSal.replace(/[^0-9.]/g, '') || 50000) : 50000;
+
+                        return (
+                          <tr key={i}>
+                            <td className="p-2 font-mono text-sky-300">{code}</td>
+                            <td className="p-2 font-medium">{fname} {lname}</td>
+                            <td className="p-2 text-slate-400">{email}</td>
+                            <td className="p-2">{dept}</td>
+                            <td className="p-2 font-mono">PKR {salary.toLocaleString()}</td>
+                          </tr>
+                        );
+                      })}
                     </tbody>
                   </table>
                 </div>

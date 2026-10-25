@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Sun, Moon, Bell, LogOut, User as UserIcon, Shield, CheckCheck } from 'lucide-react';
+import { Sun, Moon, Bell, LogOut, User as UserIcon, Shield, CheckCheck, Mail, CheckCircle2 } from 'lucide-react';
 import { useAuth } from '../../context/AuthContext';
 import { Badge } from '../common/Badge';
 import { Notification } from '../../types';
@@ -131,11 +131,52 @@ export const Header: React.FC = () => {
             )}
           </div>
 
-          {/* User Avatar & Logout */}
+          {/* User Avatar with Hover Email Badge & Logout */}
           <div className="flex items-center gap-2 pl-2 border-l border-white/10 light:border-slate-200">
-            <div className="w-8 h-8 rounded-full bg-slate-800 text-slate-200 light:bg-slate-200 light:text-slate-800 flex items-center justify-center text-xs font-semibold border border-white/15">
-              {user?.email.substring(0, 2).toUpperCase()}
+            <div className="relative group">
+              <button
+                type="button"
+                className="w-9 h-9 rounded-full bg-gradient-to-tr from-sky-500/20 via-indigo-500/20 to-purple-500/20 hover:from-sky-500/30 hover:to-purple-500/30 text-sky-300 light:text-slate-800 light:bg-slate-100 flex items-center justify-center text-xs font-bold border border-white/15 light:border-slate-300 shadow-sm transition-all focus:outline-none"
+                title="Account Details"
+              >
+                <UserIcon className="w-4 h-4 text-sky-400 light:text-sky-600" />
+              </button>
+
+              {/* Hover Tooltip Card showing Registered Email */}
+              <div className="absolute right-0 top-full mt-2 w-72 p-3.5 glass-panel light:bg-white light:border-slate-300 shadow-2xl rounded-2xl opacity-0 translate-y-1 invisible group-hover:opacity-100 group-hover:translate-y-0 group-hover:visible transition-all duration-200 z-50 pointer-events-none">
+                <div className="flex items-center gap-3 pb-2.5 mb-2.5 border-b border-white/10 light:border-slate-200">
+                  <div className="w-10 h-10 rounded-xl bg-gradient-to-tr from-sky-500 to-indigo-600 flex items-center justify-center text-white font-bold text-sm shadow-md">
+                    {user?.employee_name ? user.employee_name.charAt(0).toUpperCase() : (user?.email?.charAt(0).toUpperCase() || 'U')}
+                  </div>
+                  <div className="overflow-hidden">
+                    <p className="font-bold text-xs text-white light:text-slate-900 truncate">
+                      {user?.employee_name || 'System User'}
+                    </p>
+                    <div className="flex items-center gap-1.5 mt-0.5">
+                      <Badge variant={roleColors[user?.role || 'EMPLOYEE'] || 'neutral'} size="sm">
+                        {user?.role || 'EMPLOYEE'}
+                      </Badge>
+                      <span className="text-[10px] text-emerald-400 light:text-emerald-600 flex items-center gap-0.5">
+                        <CheckCircle2 className="w-3 h-3" /> Active
+                      </span>
+                    </div>
+                  </div>
+                </div>
+
+                <div className="space-y-1">
+                  <span className="text-[10px] text-slate-400 light:text-slate-500 font-semibold uppercase tracking-wider block">
+                    Registered Email
+                  </span>
+                  <div className="p-2 rounded-xl bg-white/5 light:bg-slate-100 border border-white/10 light:border-slate-200 flex items-center gap-2">
+                    <Mail className="w-3.5 h-3.5 text-sky-400 light:text-sky-600 shrink-0" />
+                    <span className="text-xs font-mono font-medium text-sky-200 light:text-slate-800 break-all select-all">
+                      {user?.email || 'N/A'}
+                    </span>
+                  </div>
+                </div>
+              </div>
             </div>
+
             <button
               onClick={logout}
               className="p-2 rounded-xl text-slate-400 hover:text-rose-400 hover:bg-rose-500/10 transition-colors"

@@ -27,19 +27,20 @@ def validate_strong_password(v: str) -> str:
 
 def validate_hmclite_email(v: str) -> str:
     """
-    Validates that registered email ends with '@hcmlite.app' (e.g. admin@hcmlite.app).
-    Also supports legacy test suffixes for backward compatibility.
+    Validates that registered email contains '@' and ends with '.app' (e.g. admin@acmetech.app).
     """
     clean = v.strip().lower()
-    valid_suffixes = ("@hcmlite.app", "hcmlite.app", "@hmclite", "hmclite", "hcmlite.com", "hcmlite.local", "hmclite.com", "hmclite.local")
-    matched_suffix = next((s for s in valid_suffixes if clean.endswith(s)), None)
-    if not matched_suffix:
-        raise ValueError("Email address must end with @hcmlite.app (e.g. admin@hcmlite.app).")
+    if "@" not in clean:
+        raise ValueError("Email address must contain '@'.")
+    if not clean.endswith(".app"):
+        raise ValueError("Email address must end with '.app' (e.g. admin@company.app).")
 
-    # Check that there are unique characters before the suffix
-    prefix = clean[:-len(matched_suffix)].rstrip("@._-")
-    if not prefix:
-        raise ValueError("Email must start with a unique username before @hcmlite.app.")
+    parts = clean.split("@")
+    if len(parts) != 2 or not parts[0].strip() or not parts[1].strip():
+        raise ValueError("Email must contain a valid username before '@' and domain ending with '.app'.")
+    domain = parts[1]
+    if domain == ".app" or not domain.endswith(".app"):
+        raise ValueError("Email domain must be a valid domain ending with '.app' (e.g. acmetech.app).")
     return clean
 
 

@@ -239,7 +239,7 @@ export default function LeaveManagementPage() {
             </div>
           ) : (
             <div className="grid grid-cols-2 md:grid-cols-4 gap-4">
-              {balances && balances.length > 0 ? (
+              {Array.isArray(balances) && balances.length > 0 ? (
                 balances.map((b: any) => (
                   <GlassCard key={b.code} className="p-4 relative overflow-hidden">
                     <div className="flex justify-between items-start">
@@ -340,7 +340,7 @@ export default function LeaveManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {pendingLeaves.map((req: any) => (
+                    {(Array.isArray(pendingLeaves) ? pendingLeaves : []).map((req: any) => (
                       <tr key={req.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-medium text-gray-900 dark:text-white">
                           <div>
@@ -426,7 +426,7 @@ export default function LeaveManagementPage() {
                     </tr>
                   </thead>
                   <tbody className="divide-y divide-gray-200/40 dark:divide-gray-800/40">
-                    {myLeaves.map((req: any) => (
+                    {(Array.isArray(myLeaves) ? myLeaves : []).map((req: any) => (
                       <tr key={req.id} className="hover:bg-gray-50/40 dark:hover:bg-gray-800/40 transition-colors">
                         <td className="px-6 py-4 font-semibold text-gray-900 dark:text-white">
                           {req.leave_type_name}
